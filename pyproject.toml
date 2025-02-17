@@ -11,6 +11,7 @@ dependencies = [
     "pandas>=2.2.3",
     "pip>=25.0.1",
     "pytest>=8.3.4",
+    "ruff>=0.9.6",
     "scikit-learn>=1.6.1",
     "scipy>=1.15.1",
     "statsmodels>=0.14.4",
@@ -42,3 +43,8 @@ testpaths = "tests"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aa_mbs"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "W", "C90"]
+ignore = ["E501"]
