@@ -130,13 +130,20 @@ Stagflation (Low Growth + Rising Inflation):
    - Iterate over time steps:
      - For each time step $t_n$:
        - Generate random variables $Z_O$ and $Z_C$.
-       - Update $S_{OAS}$ and $C$ using the discretized equations:
+       - Update $S_{OAS}$ and $C$ using the discretized equations.
 
-6. **Sensitivity Analysis and Stress Testing**:
+6. **Monte Carlo Simulation for Expected OAS**:
+   - Run multiple simulations (e.g., 1000 paths) to estimate the expected value of OAS in one year.
+   - For each simulation:
+     - Simulate the OAS and Convexity processes using the discretized equations.
+     - Collect the OAS estimate at the end of the simulation.
+   - Calculate the expected value of OAS by averaging the results of all simulations.
+
+7. **Sensitivity Analysis and Stress Testing**:
    - Simulate model responses to diverse economic scenarios.
    - Test extreme cases such as volatility spikes and rapid prepayment shifts.
 
-7. **Operational Implementation**:
+8. **Operational Implementation**:
    - Automate parameter updates.
    - Incorporate real-time adjustments to account for shifts in rate vol and prepayment behaviour.
 

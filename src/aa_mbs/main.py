@@ -17,7 +17,6 @@ class JointReversionModel:
         sigma_O: np.ndarray,
         sigma_C: float,
         dt: float,
-        steps: int,
     ):
         self.kappa = kappa
         self.lambda_ = lambda_
@@ -26,7 +25,6 @@ class JointReversionModel:
         self.sigma_O = sigma_O
         self.sigma_C = sigma_C
         self.dt = dt
-        self.steps = steps
 
     # ruff: noqa
     def simulate(
@@ -38,17 +36,18 @@ class JointReversionModel:
         nu_r: np.ndarray,
         enable_convexity: bool = True,
         enable_volatility: bool = True,
+        steps: int = 252,
         seed: int = None,
     ) -> Tuple[np.ndarray, np.ndarray]:
         if seed is not None:
             np.random.seed(seed)
 
-        S_OAS = np.zeros(self.steps)
-        C = np.zeros(self.steps)
+        S_OAS = np.zeros(steps)
+        C = np.zeros(steps)
         S_OAS[0] = S_OAS_init
         C[0] = C_init
 
-        for t in range(1, self.steps):
+        for t in range(1, steps):
             Z_O = np.random.normal()
             Z_C = np.random.normal()
 
@@ -87,7 +86,7 @@ class JointReversionModel:
 
 def estimate_parameters(
     data: pd.DataFrame,
-    initial_guess: Tuple[float, float] = (0.02, 0.1)
+    initial_guess: Tuple[float, float] = (0.05, 0.2)
 ) -> Tuple[float, float, List[float], List[float], np.ndarray, float]:
     # Extract historical data
     S_OAS = data['OAS']
@@ -132,7 +131,7 @@ def estimate_parameters(
 
     sigma_O_0, delta = minimize(variance_function, initial_guess).x
 
-    sigma_O = np.sqrt(sigma_O_0**2 + delta * C**2)
+    sigma_O = np.sqrt(sigma_O_0**2 + delta * C**2).values
     sigma_C = np.std(residuals_C)
 
     return (
@@ -160,59 +159,121 @@ def stationarity_tests(
     return adf_OAS, adf_C
 
 
-def main() -> None:
-    # Load historical data
-    # data = pd.read_csv('mock_data.csv')
-    data = generate_mock_data(1000)
+def monte_carlo_simulation(
+    model: JointReversionModel,
+    S_OAS_init: float,
+    C_init: float,
+    S_OAS_inf: float,
+    sigma_r: np.ndarray,
+    nu_r: np.ndarray,
+    num_paths: int,
+    steps: int,
+    seed: int = None,
+) -> Tuple[float, float, List[np.ndarray], List[np.ndarray]]:
+    results_OAS = []
+    results_C = []
+    paths_OAS = []
+    paths_C = []
 
-    # Estimate parameters
-    kappa, lambda_, gamma, beta, sigma_O, sigma_C = estimate_parameters(data)
+    if seed is not None:
+        np.random.seed(seed)
+
+    for i in range(num_paths):
+        S_OAS, C = model.simulate(
+            S_OAS_init,
+            C_init,
+            S_OAS_inf,
+            sigma_r,
+            nu_r,
+            enable_convexity=True,
+            enable_volatility=True,
+            steps=steps,
+        )
+        results_OAS.append(S_OAS[-1])
+        results_C.append(C[-1])
+        paths_OAS.append(S_OAS)
+        paths_C.append(C)
+
+    expected_value_OAS = np.mean(results_OAS)
+    expected_value_C = np.mean(results_C)
+    return expected_value_OAS, expected_value_C, paths_OAS, paths_C
+
+def main() -> None:
+    # Set seed for reproducibility
+    seed = 42
+
+    # Load historical data
+    data = generate_mock_data(seed=seed)
 
     # Stationarity tests
     adf_OAS, adf_C = stationarity_tests(data)
     print(f'ADF Test for OAS: {adf_OAS}')
     print(f'ADF Test for Convexity: {adf_C}')
 
+    # Estimate model parameters
+    kappa, lambda_, gamma, beta, sigma_O, sigma_C = estimate_parameters(data)
+
     # Simulation parameters
     dt = 0.01
-    steps = 1000
+    steps = 252  # Assuming 252 trading days in a year
     S_OAS_init = float(data['OAS'].iloc[-1])
     C_init = float(data['Convexity'].iloc[-1])
     S_OAS_inf = float(np.mean(data['OAS']))
-    sigma_r = np.random.normal(0, 0.01, steps).astype(float)
-    nu_r = np.random.normal(0, 0.01, steps).astype(float)
-    seed = 42  # Set seed for reproducibility
+    sigma_r = data['Sigma_r'].values
+    nu_r = data['Nu_r'].values
+    num_paths = 1000  # Number of Monte Carlo paths
 
     # Create model instance
-    model = JointReversionModel(
-        kappa, 
-        lambda_, 
-        gamma, 
-        beta, 
-        sigma_O, 
-        sigma_C, 
-        dt, 
-        steps,
-    )
+    model = JointReversionModel(kappa, lambda_, gamma, beta, sigma_O, sigma_C, dt)
 
-    # Simulate with all components enabled
-    S_OAS, C = model.simulate(
+    # Perform Monte Carlo simulation
+    expected_value_OAS, expected_value_C, paths_OAS, paths_C = monte_carlo_simulation(
+        model,
         S_OAS_init,
         C_init,
         S_OAS_inf,
         sigma_r,
         nu_r,
-        enable_convexity=True,
-        enable_volatility=True,
-        seed=seed,
+        num_paths,
+        steps,
+        seed
     )
 
-    # Plot results
-    plt.plot(S_OAS, label='S_OAS')
-    plt.plot(C, label='C')
-    plt.legend()
-    plt.show()
+    print(f'Expected value of OAS in one year: {expected_value_OAS}')
+    print(f'Expected value of Convexity in one year: {expected_value_C}')
 
+    # Plot historical data and Monte Carlo paths
+    fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
+
+    # Plot historical OAS data
+
+    paths_OAS = pd.DataFrame(paths_OAS).T
+    paths_OAS.index = pd.date_range(start=data.index[-1], periods=steps, freq='B')
+    OAS = pd.concat([data['OAS'], paths_OAS], axis=1)
+    axs[0].plot(OAS, color='blue', alpha=0.1)
+    axs[0].plot(data['OAS'], color='black', label='OAS')
+    axs[0].axhline(y=expected_value_OAS, color='red', linestyle='--', label='Expected Value')
+    axs[0].axhline(y=data['OAS'].mean(), color='green', linestyle='--', label='Historical Mean')
+    axs[0].set_title('Monte Carlo Simulation of OAS')
+    axs[0].set_xlabel('')
+    axs[0].set_ylabel('OAS')
+    axs[0].legend()
+
+    # Plot historical Convexity data
+    paths_C = pd.DataFrame(paths_C).T
+    paths_C.index = pd.date_range(start=data.index[-1], periods=steps, freq='B')
+    C = pd.concat([data['Convexity'], paths_C], axis=1)
+    axs[1].plot(C, color='green', alpha=0.1)
+    axs[1].plot(data['Convexity'], color='black', label='Convexity')
+    axs[1].axhline(y=expected_value_C, color='red', linestyle='--', label='Expected Value')
+    axs[1].axhline(y=data['Convexity'].mean(), color='green', linestyle='--', label='Historical Mean')
+    axs[1].set_title('Monte Carlo Simulation of Convexity')
+    axs[1].set_xlabel('')
+    axs[1].set_ylabel('Convexity')
+    axs[1].legend()
+
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == '__main__':
     main()
