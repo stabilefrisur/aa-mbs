@@ -16,9 +16,9 @@ $$
 - **Option-Adjusted Spread (OAS)**: Spread after removing the impact of embedded options, particularly prepayments.
 - **Convexity**: Defined as the differential between the Z-Spread and OAS, capturing the optionality premium intrinsic to MBS.
 
- However, changes in OAS cannot be thought of as independent from Convexity. The dynamics of both OAS and Convexity are also likely influenced by interest rates. 
+However, changes in OAS cannot be thought of as independent from Convexity. The dynamics of both OAS and Convexity are also likely influenced by interest rates.
 
- I propose a **Joint Reversion Model** for OAS and Convexity, explicitly incorporating external factors such as interest rate volatility ($\sigma_r$) and volatility of volatility ($\nu_r$), while also accounting for model uncertainty inherent in OAS estimation.
+I propose a **Joint Reversion Model** for OAS and Convexity, explicitly incorporating external factors such as interest rate volatility ($\sigma_r$) and volatility of volatility ($\nu_r$), while also accounting for model uncertainty inherent in OAS estimation.
 
 ### Model Components
 
@@ -61,42 +61,38 @@ To discretize the system of differential equations in the Joint Reversion Model 
 #### Continuous-Time Model
 The continuous-time model for OAS and Convexity is given by:
 
-1. **OAS Process**: $ dS_{OAS} = -\kappa \left(S_{OAS} - S_{OAS}^{\infty} - \gamma_0 C - \gamma_1 \sigma_r - \gamma_2 \nu_r\right) dt + \sigma_O dW_O $
+1. **OAS Process**: 
+   $$
+   dS_{OAS} = -\kappa \left(S_{OAS} - S_{OAS}^{\infty} - \gamma_0 C - \gamma_1 \sigma_r - \gamma_2 \nu_r\right) dt + \sigma_O dW_O 
+   $$
+   where 
+   $$
+   \sigma_O^2 = \sigma_{O,0}^2 + \delta C^2
+   $$
 
-2. **Convexity Process**: $ dC = -\lambda \left(C - \beta_0 S_{OAS} - \beta_1 \sigma_r - \beta_2 \nu_r\right) dt + \sigma_C dW_C $
+2. **Convexity Process**: 
+   $$
+   dC = -\lambda \left(C - \beta_0 S_{OAS} - \beta_1 \sigma_r - \beta_2 \nu_r\right) dt + \sigma_C dW_C 
+   $$
 
 #### Discretisation Using Euler-Maruyama Method
 To discretise these equations, we approximate the continuous-time processes with discrete-time steps. Let $\Delta t$ be the time step size, and let $t_n = n \Delta t$ for $n = 0, 1, 2, \ldots$. The discretized versions of the SDEs are:
 
-1. **Discretized OAS Process**: $ S_{OAS}(t_{n+1}) = S_{OAS}(t_n) - \kappa \left(S_{OAS}(t_n) - S_{OAS}^{\infty} - \gamma_0 C(t_n) - \gamma_1 \sigma_r(t_n) - \gamma_2 \nu_r(t_n)\right) \Delta t + \sigma_O \sqrt{\Delta t} \cdot Z_O $
+1. **Discretized OAS Process**: 
+   $$
+   S_{OAS}(t_{n+1}) = S_{OAS}(t_n) - \kappa \left(S_{OAS}(t_n) - S_{OAS}^{\infty} - \gamma_0 C(t_n) - \gamma_1 \sigma_r(t_n) - \gamma_2 \nu_r(t_n)\right) \Delta t + \sigma_O(t_n) \sqrt{\Delta t} \cdot Z_O 
+   $$
+   where 
+   $$
+   \sigma_O(t_n)^2 = \sigma_{O,0}^2 + \delta C(t_n)^2
+   $$
 
-2. **Discretized Convexity Process**: $ C(t_{n+1}) = C(t_n) - \lambda \left(C(t_n) - \beta_0 S_{OAS}(t_n) - \beta_1 \sigma_r(t_n) - \beta_2 \nu_r(t_n)\right) \Delta t + \sigma_C \sqrt{\Delta t} \cdot Z_C $
+2. **Discretized Convexity Process**: 
+   $$
+   C(t_{n+1}) = C(t_n) - \lambda \left(C(t_n) - \beta_0 S_{OAS}(t_n) - \beta_1 \sigma_r(t_n) - \beta_2 \nu_r(t_n)\right) \Delta t + \sigma_C \sqrt{\Delta t} \cdot Z_C 
+   $$
 
 Here, $Z_O$ and $Z_C$ are independent standard normal random variables (i.e., $Z_O, Z_C \sim \mathcal{N}(0, 1) $) representing the Wiener processes $dW_O$ and $dW_C$.
-
-### Predicted Market Behaviour
-
-Recovery (High Growth + Falling Inflation):
-- Interest Rates: Likely to rise as the economy grows, leading to elevated OAS.
-- Credit Spreads: May tighten due to improved economic conditions.
-- Prepayments: Likely to remain stable, reducing convexity.
-
-Boom (High Growth + Rising Inflation):
-- Interest Rates: Likely to rise significantly due to inflationary pressures, leading to increased OAS.
-- Credit Spreads: May widen slightly due to inflation concerns.
-- Prepayments: Likely to remain stable, reducing convexity.
-
-Downturn (Low Growth + Falling Inflation):
-- Interest Rates: Likely to fall as the central bank cuts rates to stimulate the economy, leading to declining OAS.
-- Credit Spreads: Likely to widen due to increased credit risk.
-- Prepayments: Likely to accelerate as borrowers refinance at lower rates, increasing convexity.
-
-Stagflation (Low Growth + Rising Inflation):
-- Interest Rates: Likely to rise due to inflationary pressures despite low growth, leading to increased OAS.
-- Credit Spreads: Likely to widen significantly due to economic uncertainty.
-- Prepayments: Behavior may be uncertain, potentially rising convexity due to mixed signals in the market.
-
-## 2. Implementation and Estimation
 
 ### Step-by-Step Implementation
 
@@ -126,7 +122,7 @@ Stagflation (Low Growth + Rising Inflation):
    - Define the time step size $\Delta t$ and the number of steps $N$.
    - Initialize parameters and variables:
      - Set initial values for $S_{OAS}(0)$ and $C(0)$.
-     - Define the parameters $\kappa, \lambda, \gamma_0, \gamma_1, \gamma_2, \beta_0, \beta_1, \beta_2, \sigma_O, \sigma_C$.
+     - Define the parameters $\kappa, \lambda, \gamma_0, \gamma_1, \gamma_2, \beta_0, \beta_1, \beta_2, \sigma_{O,0}, \delta, \sigma_C$.
    - Iterate over time steps:
      - For each time step $t_n$:
        - Generate random variables $Z_O$ and $Z_C$.
@@ -155,4 +151,3 @@ Stagflation (Low Growth + Rising Inflation):
 | **Panel Regression**                      | Cross-sectional analysis of MBS spreads    | Leverages large datasets            | Ignores time-series dependencies, requires large cross-sectional sample  | Index aggregated spread dynamics         |
 | **State-Space Model (SSM)**               | Kalman filter-based latent factor modelling | Captures hidden states dynamically | Computationally demanding          | High-frequency filtering applications |
 | **Markov-Switching Model (MSM)**          | Regime-switching framework                 | Models non-linear transitions      | Hard to estimate transition probabilities | Capturing regime-dependent spread shifts |
-

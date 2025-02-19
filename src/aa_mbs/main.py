@@ -14,7 +14,8 @@ class JointReversionModel:
         lambda_: float,
         gamma: List[float],
         beta: List[float],
-        sigma_O: np.ndarray,
+        sigma_O_0: float,
+        delta: float,
         sigma_C: float,
         dt: float,
     ):
@@ -22,11 +23,11 @@ class JointReversionModel:
         self.lambda_ = lambda_
         self.gamma = gamma
         self.beta = beta
-        self.sigma_O = sigma_O
+        self.sigma_O_0 = sigma_O_0
+        self.delta = delta
         self.sigma_C = sigma_C
         self.dt = dt
 
-    # ruff: noqa
     def simulate(
         self,
         S_OAS_init: float,
@@ -38,14 +39,16 @@ class JointReversionModel:
         enable_volatility: bool = True,
         steps: int = 252,
         seed: int = None,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         if seed is not None:
             np.random.seed(seed)
 
         S_OAS = np.zeros(steps)
         C = np.zeros(steps)
+        sigma_O = np.zeros(steps)
         S_OAS[0] = S_OAS_init
         C[0] = C_init
+        sigma_O[0] = np.sqrt(self.sigma_O_0**2 + self.delta * C_init**2)
 
         for t in range(1, steps):
             Z_O = np.random.normal()
@@ -71,7 +74,7 @@ class JointReversionModel:
             S_OAS[t] = (
                 float(S_OAS[t - 1])
                 - self.kappa * (float(S_OAS[t - 1]) - S_OAS_inf - gamma_term) * self.dt
-                + self.sigma_O[t] * np.sqrt(self.dt) * Z_O
+                + sigma_O[t - 1] * np.sqrt(self.dt) * Z_O
             )
 
             C[t] = (
@@ -80,14 +83,16 @@ class JointReversionModel:
                 + self.sigma_C * np.sqrt(self.dt) * Z_C
             )
 
-        return S_OAS, C
+            sigma_O[t] = np.sqrt(self.sigma_O_0**2 + self.delta * C[t]**2)
+
+        return S_OAS, C, sigma_O
     # ruff: enable
 
 
 def estimate_parameters(
     data: pd.DataFrame,
     initial_guess: Tuple[float, float] = (0.05, 0.2)
-) -> Tuple[float, float, List[float], List[float], np.ndarray, float]:
+) -> Tuple[float, float, List[float], List[float], float, float, float]:
     # Extract historical data
     S_OAS = data['OAS']
     C = data['Convexity']
@@ -131,7 +136,6 @@ def estimate_parameters(
 
     sigma_O_0, delta = minimize(variance_function, initial_guess).x
 
-    sigma_O = np.sqrt(sigma_O_0**2 + delta * C**2).values
     sigma_C = np.std(residuals_C)
 
     return (
@@ -139,7 +143,8 @@ def estimate_parameters(
         lambda_,
         [gamma_0, gamma_1, gamma_2],
         [beta_0, beta_1, beta_2],
-        sigma_O,
+        sigma_O_0,
+        delta,
         sigma_C,
     )
 
@@ -169,17 +174,19 @@ def monte_carlo_simulation(
     num_paths: int,
     steps: int,
     seed: int = None,
-) -> Tuple[float, float, List[np.ndarray], List[np.ndarray]]:
+) -> Tuple[float, float, float, List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
     results_OAS = []
     results_C = []
+    results_sigma_O = []
     paths_OAS = []
     paths_C = []
+    paths_sigma_O = []
 
     if seed is not None:
         np.random.seed(seed)
 
     for i in range(num_paths):
-        S_OAS, C = model.simulate(
+        S_OAS, C, sigma_O = model.simulate(
             S_OAS_init,
             C_init,
             S_OAS_inf,
@@ -191,16 +198,19 @@ def monte_carlo_simulation(
         )
         results_OAS.append(S_OAS[-1])
         results_C.append(C[-1])
+        results_sigma_O.append(sigma_O[-1])
         paths_OAS.append(S_OAS)
         paths_C.append(C)
+        paths_sigma_O.append(sigma_O)
 
     expected_value_OAS = np.mean(results_OAS)
     expected_value_C = np.mean(results_C)
-    return expected_value_OAS, expected_value_C, paths_OAS, paths_C
+    expected_value_sigma_O = np.mean(results_sigma_O)
+    return expected_value_OAS, expected_value_C, expected_value_sigma_O, paths_OAS, paths_C, expected_value_sigma_O
 
 def main() -> None:
     # Set seed for reproducibility
-    seed = 42
+    seed = 43
 
     # Load historical data
     data = generate_mock_data(seed=seed)
@@ -211,7 +221,7 @@ def main() -> None:
     print(f'ADF Test for Convexity: {adf_C}')
 
     # Estimate model parameters
-    kappa, lambda_, gamma, beta, sigma_O, sigma_C = estimate_parameters(data)
+    kappa, lambda_, gamma, beta, sigma_O_0, delta, sigma_C = estimate_parameters(data)
 
     # Simulation parameters
     dt = 0.01
@@ -224,10 +234,10 @@ def main() -> None:
     num_paths = 1000  # Number of Monte Carlo paths
 
     # Create model instance
-    model = JointReversionModel(kappa, lambda_, gamma, beta, sigma_O, sigma_C, dt)
+    model = JointReversionModel(kappa, lambda_, gamma, beta, sigma_O_0, delta, sigma_C, dt)
 
     # Perform Monte Carlo simulation
-    expected_value_OAS, expected_value_C, paths_OAS, paths_C = monte_carlo_simulation(
+    expected_value_OAS, expected_value_C, expected_value_sigma_O, paths_OAS, paths_C, paths_sigma_O = monte_carlo_simulation(
         model,
         S_OAS_init,
         C_init,
@@ -241,12 +251,12 @@ def main() -> None:
 
     print(f'Expected value of OAS in one year: {expected_value_OAS}')
     print(f'Expected value of Convexity in one year: {expected_value_C}')
+    print(f'Expected value of Sigma_O in one year: {expected_value_sigma_O}')
 
     # Plot historical data and Monte Carlo paths
     fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
 
-    # Plot historical OAS data
-
+    # Plot OAS
     paths_OAS = pd.DataFrame(paths_OAS).T
     paths_OAS.index = pd.date_range(start=data.index[-1], periods=steps, freq='B')
     OAS = pd.concat([data['OAS'], paths_OAS], axis=1)
@@ -259,7 +269,7 @@ def main() -> None:
     axs[0].set_ylabel('OAS')
     axs[0].legend()
 
-    # Plot historical Convexity data
+    # Plot Convexity
     paths_C = pd.DataFrame(paths_C).T
     paths_C.index = pd.date_range(start=data.index[-1], periods=steps, freq='B')
     C = pd.concat([data['Convexity'], paths_C], axis=1)
@@ -274,6 +284,7 @@ def main() -> None:
 
     plt.tight_layout()
     plt.show()
+
 
 if __name__ == '__main__':
     main()

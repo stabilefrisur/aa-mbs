@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # Set random seed for reproducibility
 np.random.seed(42)
@@ -14,11 +15,12 @@ def generate_time_series(
     n_points, mean, std_dev, mean_reversion_speed, noise_std_dev, non_negative=False
 ):
     series = np.zeros(n_points)
+    series[0] = mean  # Initialize the first element to the mean
     for t in range(1, n_points):
         series[t] = (
             series[t - 1]
             + mean_reversion_speed * (mean - series[t - 1])
-            + np.random.normal(0, noise_std_dev)
+            + std_dev * np.random.normal(0, noise_std_dev)
         )
         if non_negative:
             series[t] = max(series[t], 0)
@@ -29,9 +31,9 @@ def generate_time_series(
 def generate_zv_oas_data(n_points):
     zv_mean = 0.02
     oas_mean = 0.01
-    std_dev = 0.005
-    mean_reversion_speed = 0.01
-    noise_std_dev = 0.001
+    std_dev = 0.02
+    mean_reversion_speed = 0.001  # Reduced mean reversion speed
+    noise_std_dev = 0.01
 
     zv_data = (
         generate_time_series(
@@ -52,9 +54,9 @@ def generate_zv_oas_data(n_points):
 def generate_vol_data(n_points):
     sigma_r_mean = 0.02
     nu_r_mean = 0.01
-    std_dev_vol = 0.002
-    mean_reversion_speed_vol = 0.01
-    noise_std_dev_vol = 0.0005
+    std_dev_vol = 0.02
+    mean_reversion_speed_vol = 0.001  # Reduced mean reversion speed
+    noise_std_dev_vol = 0.005
 
     sigma_r_data = (
         generate_time_series(
@@ -107,3 +109,15 @@ def generate_mock_data(start_date='2013-01-01', end_date=None, freq='B', seed=42
     )
     data.set_index('Date', inplace=True)
     return data
+
+# Plot mock data
+def plot_mock_data(data):
+    data.plot()    
+
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == '__main__':
+    data = generate_mock_data()
+    plot_mock_data(data)
