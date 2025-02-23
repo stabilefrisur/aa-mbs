@@ -1,7 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def generate_gbm(mu: float, sigma: float, X0: float, T: float, N: int, seed: int = None) -> np.ndarray:
+
+def generate_gbm(
+    mu: float, sigma: float, X0: float, T: float, N: int, seed: int = None
+) -> np.ndarray:
     """
     Generate a geometric Brownian motion (GBM) time series using the Euler-Maruyama method.
 
@@ -21,17 +24,20 @@ def generate_gbm(mu: float, sigma: float, X0: float, T: float, N: int, seed: int
         np.random.seed(seed)
 
     dt = T / N
-    t = np.linspace(0, T, N+1)
-    X = np.zeros(N+1)
+    t = np.linspace(0, T, N + 1)
+    X = np.zeros(N + 1)
     X[0] = X0
 
     for n in range(N):
         Z = np.random.normal()
-        X[n+1] = X[n] + mu * X[n] * dt + sigma * X[n] * np.sqrt(dt) * Z
+        X[n + 1] = X[n] + mu * X[n] * dt + sigma * X[n] * np.sqrt(dt) * Z
 
     return t, X
 
-def generate_mean_reversion(mu: float, theta: float, sigma: float, X0: float, T: float, N: int, seed: int = None) -> np.ndarray:
+
+def generate_mean_reversion(
+    mu: float, theta: float, sigma: float, X0: float, T: float, N: int, seed: int = None
+) -> np.ndarray:
     """
     Generate a mean reversion process time series using the Euler-Maruyama method.
 
@@ -52,19 +58,31 @@ def generate_mean_reversion(mu: float, theta: float, sigma: float, X0: float, T:
         np.random.seed(seed)
 
     dt = T / N
-    t = np.linspace(0, T, N+1)
-    X = np.zeros(N+1)
+    t = np.linspace(0, T, N + 1)
+    X = np.zeros(N + 1)
     X[0] = X0
 
     for n in range(N):
         Z = np.random.normal()
-        X[n+1] = X[n] + theta * (mu - X[n]) * dt + sigma * np.sqrt(dt) * Z
+        X[n + 1] = X[n] + theta * (mu - X[n]) * dt + sigma * np.sqrt(dt) * Z
 
     return t, X
 
-def generate_correlated_mean_reversion(mu1: float, theta1: float, sigma1: float, X01: float,
-                                       mu2: float, theta2: float, sigma2: float, X02: float,
-                                       T: float, N: int, rho: float, seed: int = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+
+def generate_correlated_mean_reversion(
+    mu1: float,
+    theta1: float,
+    sigma1: float,
+    X01: float,
+    mu2: float,
+    theta2: float,
+    sigma2: float,
+    X02: float,
+    T: float,
+    N: int,
+    rho: float,
+    seed: int = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Generate two correlated mean reversion processes using the Euler-Maruyama method.
 
@@ -87,9 +105,9 @@ def generate_correlated_mean_reversion(mu1: float, theta1: float, sigma1: float,
         np.random.seed(seed)
 
     dt = T / N
-    t = np.linspace(0, T, N+1)
-    X1 = np.zeros(N+1)
-    X2 = np.zeros(N+1)
+    t = np.linspace(0, T, N + 1)
+    X1 = np.zeros(N + 1)
+    X2 = np.zeros(N + 1)
     X1[0] = X01
     X2[0] = X02
 
@@ -99,12 +117,19 @@ def generate_correlated_mean_reversion(mu1: float, theta1: float, sigma1: float,
     for n in range(N):
         Z = np.random.normal(size=2)
         Z_corr = L @ Z
-        X1[n+1] = X1[n] + theta1 * (mu1 - X1[n]) * dt + sigma1 * np.sqrt(dt) * Z_corr[0]
-        X2[n+1] = X2[n] + theta2 * (mu2 - X2[n]) * dt + sigma2 * np.sqrt(dt) * Z_corr[1]
+        X1[n + 1] = (
+            X1[n] + theta1 * (mu1 - X1[n]) * dt + sigma1 * np.sqrt(dt) * Z_corr[0]
+        )
+        X2[n + 1] = (
+            X2[n] + theta2 * (mu2 - X2[n]) * dt + sigma2 * np.sqrt(dt) * Z_corr[1]
+        )
 
     return t, X1, X2
 
-def plot_process(processes: dict[str, tuple[np.ndarray, np.ndarray]], title: str) -> None:
+
+def plot_process(
+    processes: dict[str, tuple[np.ndarray, np.ndarray]], title: str
+) -> None:
     """
     Plot multiple stochastic processes in the same chart for comparison.
 
@@ -120,6 +145,7 @@ def plot_process(processes: dict[str, tuple[np.ndarray, np.ndarray]], title: str
     plt.title(title)
     plt.legend()
     plt.show()
+
 
 if __name__ == '__main__':
     # Example usage for GBM
@@ -141,7 +167,9 @@ if __name__ == '__main__':
     N_mr = 1000
     seed_mr = 42
 
-    t_mr, X_mr = generate_mean_reversion(mu_mr, theta_mr, sigma_mr, X0_mr, T_mr, N_mr, seed_mr)
+    t_mr, X_mr = generate_mean_reversion(
+        mu_mr, theta_mr, sigma_mr, X0_mr, T_mr, N_mr, seed_mr
+    )
 
     # Example usage for Correlated Mean Reversion
     mu1 = 1.0
@@ -157,13 +185,26 @@ if __name__ == '__main__':
     rho = 0.8
     seed_corr = 42
 
-    t_corr, X1_corr, X2_corr = generate_correlated_mean_reversion(mu1, theta1, sigma1, X01, mu2, theta2, sigma2, X02, T_corr, N_corr, rho, seed_corr)
+    t_corr, X1_corr, X2_corr = generate_correlated_mean_reversion(
+        mu1,
+        theta1,
+        sigma1,
+        X01,
+        mu2,
+        theta2,
+        sigma2,
+        X02,
+        T_corr,
+        N_corr,
+        rho,
+        seed_corr,
+    )
 
     # Plot all processes for comparison
     processes = {
         'Geometric Brownian Motion': (t_gbm, X_gbm),
         'Mean Reversion Process': (t_mr, X_mr),
         'Correlated Mean Reversion Process 1': (t_corr, X1_corr),
-        'Correlated Mean Reversion Process 2': (t_corr, X2_corr)
+        'Correlated Mean Reversion Process 2': (t_corr, X2_corr),
     }
     plot_process(processes, 'Comparison of Stochastic Processes')

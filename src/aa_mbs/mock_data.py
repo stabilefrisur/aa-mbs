@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from stochastic_processes import generate_mean_reversion, generate_correlated_mean_reversion
-from typing import Tuple
+from aa_mbs.stochastic_processes import generate_mean_reversion, generate_correlated_mean_reversion
 
 def generate_series(
         params: dict[str, float], 
@@ -28,7 +27,7 @@ def generate_correlated_series(
     end: str,
     freq: str = 'B',
     seed: int = 42
-) -> Tuple[pd.Series, pd.Series]:
+) -> tuple[pd.Series, pd.Series]:
     """
     Generate two correlated mean reversion series using the Euler-Maruyama method.
 
@@ -65,7 +64,7 @@ def generate_training_data(
     end: str | None = None,
     freq: str = 'B',
     seed: int = 42,
-) -> Tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
+) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
     """
     Generate historical training data for MBS ZV, MBS OAS, Rates Vol, and Rates Vol of Vol.
 
@@ -99,7 +98,7 @@ def generate_forward_data(
     num_days: int = 252,
     freq: str = 'B',
     seed: int = 42,
-) -> Tuple[pd.Series, pd.Series]:
+) -> tuple[pd.Series, pd.Series]:
     """
     Generate forward data for Rates Vol and Rates Vol of Vol.
 
