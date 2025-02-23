@@ -1,1 +1,2 @@
 exclude src/aa_mbs/main.py
+exclude todo.md
