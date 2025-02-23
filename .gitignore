@@ -1,6 +1,7 @@
 # Project specific
 sample_data
 *.log
+todo.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
