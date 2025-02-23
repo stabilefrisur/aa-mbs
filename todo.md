@@ -3,5 +3,5 @@
 - [x] check if mock data volatility is scaled correctly; may need only one parameter
 - [x] add mock_data.md describing how mock data are generated
 - [x] allow 2 options to provide sigma_r and nu_r: fixed value; simulated series of same lenght as steps
-- [ ] convexity as modelled is not mean reverting but still autoregressive; reconsider the factors that drive changes in convexity
-- [ ] reserve "xsam" package name on PyPi
+- [x] convexity as modelled is not mean reverting but still autoregressive; reconsider the factors that drive changes in convexity
+- [x] reserve "xsam" package name on PyPi
