@@ -1,10 +1,20 @@
-# Agency MBS Valuation Model Proposal
+# Agency MBS Valuation Model
 
 ## 1. Model Derivation
 
-### High-Level Concept
+### Excess Returns
 
-MBS exhibit negative convexity due to the prepayment option. As interest rates decline, the price appreciation of MBS is limited by the increasing likelihood of prepayments. As interest rates rise, the price depreciation is exacerbated by the decreasing likelihood of prepayments. This negative convexity makes MBS valuation more complex. Credit spreads are more linear in their response to changes in interest rates and credit risk.
+Total returns of fixed income assets have two primary components: income returns and price returns. 
+
+For spread asset classes like credit, it is often useful think of returns in excess of interest rates. This model estimates Carry as excess income returns and Value as excess price returns.
+
+$$
+\text{Expected Excess Return} = \text{Carry Return} + \text{Value Return} 
+$$
+
+### MBS Valuation
+
+With MBS, even returns in excess of interest rates are not independet of interest rates because MBS exhibit negative convexity due to the prepayment option. As interest rates decline, the price appreciation of MBS is limited by the increasing likelihood of prepayments. As interest rates rise, the price depreciation is exacerbated by the decreasing likelihood of prepayments. This negative convexity makes MBS valuation more complex. Credit spreads are more linear in their response to changes in interest rates and credit risk.
 
 An MBS valuation model should thus consider spread reversion, prepayment optionality and their confluence. Provided ZV and OAS spreads are available, we can think of the differential as the embedded optionality or Convexity.
 
@@ -30,10 +40,10 @@ I propose a **Joint Reversion Model** for OAS and Convexity, explicitly incorpor
   dS_{OAS} = -\kappa \left(S_{OAS} - S_{OAS}^{\infty} - \gamma_0 C - \gamma_1 \sigma_r - \gamma_2 \nu_r\right) dt + \sigma_O dW_O.
   $$
   
-- Convexity also follows an auto-regressive process, with its equilibrium level influenced by OAS and external market factors:
+- Convexity follows a mean-reverting process toward the convexity of Current Coupon (CC) bonds $C^{CC}$, which itself is influenced by the level of interest rates:
   
   $$
-  dC = -\lambda \left(C - \beta_0 S_{OAS} - \beta_1 \sigma_r - \beta_2 \nu_r\right) dt + \sigma_C dW_C.
+  dC = -\lambda \left(C - C^{CC} - \beta_0 S_{OAS} - \beta_1 \sigma_r - \beta_2 \nu_r\right) dt + \sigma_C dW_C.
   $$
 
 - $\kappa$ and $\lambda$ are parameters which describe the speed of reversion of the OAS and Convexity processes to their respective equilibriums.
@@ -72,7 +82,7 @@ The continuous-time model for OAS and Convexity is given by:
 
 2. **Convexity Process**: 
    $$
-   dC = -\lambda \left(C - \beta_0 S_{OAS} - \beta_1 \sigma_r - \beta_2 \nu_r\right) dt + \sigma_C dW_C 
+   dC = -\lambda \left(C - C^{CC} - \beta_0 S_{OAS} - \beta_1 \sigma_r - \beta_2 \nu_r\right) dt + \sigma_C dW_C 
    $$
 
 #### Discretisation Using Euler-Maruyama Method
@@ -89,7 +99,7 @@ To discretise these equations, we approximate the continuous-time processes with
 
 2. **Discretized Convexity Process**: 
    $$
-   C(t_{n+1}) = C(t_n) - \lambda \left(C(t_n) - \beta_0 S_{OAS}(t_n) - \beta_1 \sigma_r(t_n) - \beta_2 \nu_r(t_n)\right) \Delta t + \sigma_C \sqrt{\Delta t} \cdot Z_C 
+   C(t_{n+1}) = C(t_n) - \lambda \left(C(t_n) - C^{CC} - \beta_0 S_{OAS}(t_n) - \beta_1 \sigma_r(t_n) - \beta_2 \nu_r(t_n)\right) \Delta t + \sigma_C \sqrt{\Delta t} \cdot Z_C 
    $$
 
 Here, $Z_O$ and $Z_C$ are independent standard normal random variables (i.e., $Z_O, Z_C \sim \mathcal{N}(0, 1) $) representing the Wiener processes $dW_O$ and $dW_C$.

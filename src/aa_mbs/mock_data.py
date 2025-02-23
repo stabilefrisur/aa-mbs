@@ -1,9 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from stochastic_processes import generate_mean_reversion
+from stochastic_processes import generate_mean_reversion, generate_correlated_mean_reversion
 from typing import Tuple
-
 
 def generate_series(
         params: dict[str, float], 
@@ -21,10 +20,45 @@ def generate_series(
     )
     return pd.Series(series, index=dates)
 
+def generate_correlated_series(
+    params1: dict[str, float],
+    params2: dict[str, float],
+    rho: float,
+    start: str,
+    end: str,
+    freq: str = 'B',
+    seed: int = 42
+) -> Tuple[pd.Series, pd.Series]:
+    """
+    Generate two correlated mean reversion series using the Euler-Maruyama method.
+
+    Parameters:
+    - params1: Parameters for the first mean reversion process.
+    - params2: Parameters for the second mean reversion process.
+    - rho: Correlation coefficient between the two processes.
+    - start: Start date for the series.
+    - end: End date for the series.
+    - freq: Frequency of the data (default: 'B' for business days).
+    - seed: Random seed for reproducibility (default: 42).
+
+    Returns:
+    - Tuple containing two pandas Series.
+    """
+    np.random.seed(seed)
+    dates = pd.date_range(start=start, end=end, freq=freq)
+    T = len(dates) - 1
+    N = len(dates) - 1
+    t, series1, series2 = generate_correlated_mean_reversion(
+        params1['mu'], params1['theta'], params1['sigma'], params1['X0'],
+        params2['mu'], params2['theta'], params2['sigma'], params2['X0'],
+        T, N, rho, seed
+    )
+    return pd.Series(series1, index=dates), pd.Series(series2, index=dates)
 
 def generate_training_data(
     zv_params: dict[str, float],
     oas_params: dict[str, float],
+    zv_oas_rho: float,
     sigma_r_params: dict[str, float],
     nu_r_params: dict[str, float],
     start: str = '2013-01-01',
@@ -52,13 +86,11 @@ def generate_training_data(
         end = (pd.Timestamp.today() - pd.offsets.BDay(1)).strftime('%Y-%m-%d')
 
     # Generate past training spread data
-    zv_data = generate_series(zv_params, start, end, freq, seed)
-    oas_data = generate_series(oas_params, start, end, freq, seed)
+    zv_data, oas_data = generate_correlated_series(zv_params, oas_params, zv_oas_rho, start, end, freq, seed)
     sigma_r_data = generate_series(sigma_r_params, start, end, freq, seed)
     nu_r_data = generate_series(nu_r_params, start, end, freq, seed)
     
     return zv_data, oas_data, sigma_r_data, nu_r_data
-
 
 def generate_forward_data(
     sigma_r_params: dict[str, float],
@@ -88,17 +120,16 @@ def generate_forward_data(
     
     return sigma_r_data, nu_r_data
 
-
 def plot_mock_data(data: pd.DataFrame) -> None:
     data.plot()
     plt.tight_layout()
     plt.show()
 
-
 if __name__ == '__main__':
     # Define variable parameters
-    zv_params = {'mu': 0.02, 'theta': 0.01, 'sigma': 0.005, 'X0': 0.02}
-    oas_params = {'mu': 0.01, 'theta': 0.01, 'sigma': 0.005, 'X0': 0.01}
+    zv_params = {'mu': 0.005, 'theta': 0.01, 'sigma': 0.008, 'X0': 0.005}
+    oas_params = {'mu': 0.003, 'theta': 0.01, 'sigma': 0.005, 'X0': 0.003}
+    zv_oas_rho = 0.8
     sigma_r_params = {'mu': 0.02, 'theta': 0.01, 'sigma': 0.002, 'X0': 0.02}
     nu_r_params = {'mu': 0.01, 'theta': 0.01, 'sigma': 0.002, 'X0': 0.01}
 
@@ -111,7 +142,7 @@ if __name__ == '__main__':
 
     # Generate training data
     zv_data, oas_data, sigma_r_data, nu_r_data = generate_training_data(
-        zv_params, oas_params, sigma_r_params, nu_r_params,
+        zv_params, oas_params, zv_oas_rho, sigma_r_params, nu_r_params,
         train_start_date, train_end_date, freq, seed
     )
 

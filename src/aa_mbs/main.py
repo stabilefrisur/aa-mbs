@@ -4,10 +4,39 @@ from scipy.optimize import minimize
 from statsmodels.tsa.stattools import adfuller
 import matplotlib.pyplot as plt
 from typing import Tuple, List
-from mock_data import generate_training_data, generate_forward_data
+from aa_mbs.mock_data import generate_training_data, generate_forward_data
 
 
 class JointReversionModel:
+    """Joint Reversion Model for OAS and Convexity.
+
+    The model is defined by the following stochastic differential equations:
+    dS_OAS = -kappa * (S_OAS - S_OAS_inf - gamma * C) * dt + sigma_O * dW_O
+    dC = -lambda * (C - C_CC - beta * S_OAS) * dt + sigma_C * dW_C
+    where:
+    - S_OAS is the OAS spread.
+    - C is the Convexity.
+    - kappa and lambda are the reversion speeds for OAS and Convexity, respectively.
+    - gamma and beta are the interest rate interaction coefficients for OAS and Convexity, respectively.
+    - sigma_O is the volatility of OAS.
+    - delta is the convexity volatility coefficient.
+    - sigma_C is the volatility of Convexity.
+    - dt is the time step.
+    - dW_O and dW_C are Wiener processes for OAS and Convexity, respectively.
+
+    The model is simulated using the Euler-Maruyama method with the following parameters:
+    - S_OAS_init: Initial value of OAS spread.
+    - C_init: Initial value of Convexity.
+    - S_OAS_inf: Long-term mean of OAS spread.
+    - C_CC: Convexity of the current coupon bond (or TBA).
+    - sigma_r: Volatility of interest rates.
+    - nu_r: Volatility of volatility of interest rates.
+    - steps: Number of time steps.
+    - seed: Random seed for reproducibility.
+
+    For educational and illustrative purposes only. Not intended for trading or investment purposes.
+    Use at your own risk. No warranty or guarantee of accuracy or reliability.
+    """
     def __init__(
         self,
         kappa: float,
@@ -19,6 +48,18 @@ class JointReversionModel:
         sigma_C: float,
         dt: float,
     ):
+        """Initialize the Joint Reversion Model.
+
+        Args:
+            kappa (float): Reversion speed for OAS.
+            lambda_ (float): Reversion speed for Convexity.
+            gamma (List[float]): Interest rate interaction coefficients for OAS.
+            beta (List[float]): Interest rate interaction coefficients for Convexity.
+            sigma_O_0 (float): Initial volatility of OAS.
+            delta (float): Convexity volatility coefficient.
+            sigma_C (float): Volatility of Convexity.
+            dt (float): Time step.
+        """
         self.kappa = kappa
         self.lambda_ = lambda_
         self.gamma = gamma
@@ -33,6 +74,7 @@ class JointReversionModel:
         S_OAS_init: float,
         C_init: float,
         S_OAS_inf: float,
+        C_CC: float,
         sigma_r: np.ndarray,
         nu_r: np.ndarray,
         enable_convexity: bool = True,
@@ -40,6 +82,23 @@ class JointReversionModel:
         steps: int = 252,
         seed: int = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Simulate the joint reversion model for OAS and Convexity.
+
+        Args:
+            S_OAS_init (float): Initial value of OAS spread.
+            C_init (float): Initial value of Convexity.
+            S_OAS_inf (float): Long-term mean of OAS spread.
+            C_CC (float): Convexity of the current coupon bond (or TBA).
+            sigma_r (np.ndarray): Volatility of interest rates.
+            nu_r (np.ndarray): Volatility of volatility of interest rates.
+            enable_convexity (bool, optional): Enable convexity interaction. Defaults to True.
+            enable_volatility (bool, optional): Enable interest rate interaction. Defaults to True.
+            steps (int, optional): Number of time steps. Defaults to 252.
+            seed (int, optional): Random seed for reproducibility. Defaults to None.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, np.ndarray]: Simulated OAS, Convexity, and Volatility of OAS.
+        """
         if seed is not None:
             np.random.seed(seed)
 
@@ -79,14 +138,13 @@ class JointReversionModel:
 
             C[t] = (
                 float(C[t - 1])
-                - self.lambda_ * (float(C[t - 1]) - beta_term) * self.dt
+                - self.lambda_ * (float(C[t - 1]) - C_CC - beta_term) * self.dt
                 + self.sigma_C * np.sqrt(self.dt) * Z_C
             )
 
             sigma_O[t] = np.sqrt(self.sigma_O_0**2 + self.delta * C[t]**2)
 
         return S_OAS, C, sigma_O
-    # ruff: enable
 
 
 def estimate_parameters(
@@ -99,14 +157,37 @@ def estimate_parameters(
     """Estimate the parameters of the joint reversion model using OLS.
 
     Args:
-        S_OAS (np.ndarray): _description_
-        C (np.ndarray): _description_
-        sigma_r (np.ndarray): _description_
-        nu_r (np.ndarray): _description_
-        initial_guess (Tuple[float, float], optional): _description_. Defaults to (0.05, 0.2).
+        S_OAS (np.ndarray): OAS spread time series.
+        C (np.ndarray): Convexity time series.
+        sigma_r (np.ndarray): Volatility of interest rates time series.
+        nu_r (np.ndarray): Volatility of volatility of interest rates time series.
+        initial_guess (Tuple[float, float], optional): Initial guess for the residual variance parameters. Defaults to (0.05, 0.2).
 
     Returns:
-        Tuple[float, float, List[float], List[float], float, float, float]: _description_
+        Tuple[float, float, List[float], List[float], float, float, float]: Estimated parameters of the Joint Reversion Model.
+
+        Estimated parameters:
+        - kappa: Reversion speed for OAS.
+        - lambda_: Reversion speed for Convexity.
+        - gamma: Interest rate interaction coefficients for OAS.
+        - beta: Interest rate interaction coefficients for Convexity.
+        - sigma_O_0: Initial volatility of OAS.
+        - delta: Convexity volatility coefficient.
+        - sigma_C: Volatility of Convexity.
+
+    The model is estimated using Ordinary Least Squares (OLS) regression.
+    OLS minimizes the sum of squared differences between the observed values and the values predicted by the model.
+
+    The residual variance is calibrated using the following function:
+    residuals_OAS = y_OAS - kappa * (S_OAS - gamma * C - sigma_r - nu_r)
+    residuals_C = y_C - lambda_ * (C - beta * S_OAS - sigma_r - nu_r)
+    variance_function = sum((residuals_OAS**2 - (sigma_O_0**2 + delta * C**2))**2)
+
+    The variance function is minimized using the Nelder-Mead method.
+
+    Reference:
+    - https://en.wikipedia.org/wiki/Ordinary_least_squares
+    - https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
     """
     # Mean Reversion Parameter Estimation using OLS
     X_OAS = np.column_stack(
@@ -168,11 +249,30 @@ def stationarity_tests(
     """Test the stationarity of the time series using the Augmented Dickey-Fuller test.
 
     Args:
-        S_OAS (pd.Series): _description_
-        C (pd.Series): _description_
+        S_OAS (pd.Series): OAS spread time series.
+        C (pd.Series): Convexity time series.
 
     Returns:
-        Tuple[ Tuple[float, float, int, int, dict, float], Tuple[float, float, int, int, dict, float], ]: _description_
+        Tuple[ Tuple[float, float, int, int, dict, float], Tuple[float, float, int, int, dict, float], ]: ADF test results for OAS and Convexity.
+
+    ADF test results:
+    - Test statistic.
+    - P-value.
+    - Number of lags used.
+    - Number of observations used.
+    - Critical values.
+    - Maximum information criterion.
+
+    ADF test null hypothesis:
+    - H0: The time series is non-stationary.
+
+    ADF test alternative hypothesis:
+    - H1: The time series is stationary.
+
+    If the p-value is less than the significance level (e.g., 0.05), we reject the null hypothesis and conclude that the time series is stationary.
+
+    Reference:
+    - https://www.statsmodels.org/stable/generated/statsmodels.tsa.stattools.adfuller.html
     """
     adf_OAS = adfuller(S_OAS)
     adf_C = adfuller(C)
@@ -185,12 +285,43 @@ def monte_carlo_simulation(
     S_OAS_init: float,
     C_init: float,
     S_OAS_inf: float,
+    C_CC: float,
     sigma_r: float | np.ndarray,
     nu_r: float | np.ndarray,
     num_paths: int,
     steps: int,
     seed: int = None,
 ) -> Tuple[float, float, float, List[np.ndarray], List[np.ndarray], List[np.ndarray]]:
+    """Perform Monte Carlo simulation of the Joint Reversion Model.
+
+    Args:
+        model (JointReversionModel): Joint Reversion Model instance.
+        S_OAS_init (float): Initial value of OAS spread.
+        C_init (float): Initial value of Convexity.
+        S_OAS_inf (float): Long-term mean of OAS spread.
+        C_CC (float): Convexity of the current coupon bond (or TBA).
+        sigma_r (float | np.ndarray): Volatility of interest rates.
+        nu_r (float | np.ndarray): Volatility of volatility of interest rates.
+        num_paths (int): Number of Monte Carlo paths.
+        steps (int): Number of time steps.
+        seed (int, optional): Random seed for reproducibility. Defaults to None.
+
+    Returns:
+        Tuple[float, float, float, List[np.ndarray], List[np.ndarray], List[np.ndarray]]: Expected value of OAS, Convexity, and Volatility of OAS, and Monte Carlo paths for OAS, Convexity, and Volatility of OAS.
+
+    The Monte Carlo simulation generates multiple paths of the OAS spread, Convexity, and Volatility of OAS using the Joint Reversion Model.
+    The expected value of OAS, Convexity, and Volatility of OAS is calculated as the average of the simulated paths.
+
+    Reference:
+    - https://en.wikipedia.org/wiki/Monte_Carlo_method
+
+    Note:
+    - The Monte Carlo simulation is a stochastic process that generates random paths.
+    - The results may vary each time the simulation is run.
+    - The results are based on the model assumptions and parameters.
+    - The results are for illustrative and educational purposes only.
+    - Use at your own risk. No warranty or guarantee of accuracy or reliability.
+    """
     results_OAS = []
     results_C = []
     results_sigma_O = []
@@ -209,6 +340,7 @@ def monte_carlo_simulation(
             S_OAS_init,
             C_init,
             S_OAS_inf,
+            C_CC,
             sigma_r_series,
             nu_r_series,
             enable_convexity=True,
@@ -228,14 +360,27 @@ def monte_carlo_simulation(
     return expected_value_OAS, expected_value_C, expected_value_sigma_O, paths_OAS, paths_C, paths_sigma_O
 
 def main() -> None:
+    """Main function running the MBS valuation process.
+
+    The main function performs the following steps:
+    1. Set seed for reproducibility.
+    2. Define variable parameters for the model.
+    3. Generate training data for ZV, OAS, Rates Vol, and Rates Vol of Vol.
+    4. Generate forward data for Rates Vol and Rates Vol of Vol.
+    5. Perform stationarity tests for OAS and Convexity.
+    6. Estimate model parameters using OLS.
+    7. Perform Monte Carlo simulation.
+    8. Plot historical data and Monte Carlo paths.
+    """
     # Set seed for reproducibility
     seed = 42
 
     # Define variable parameters
-    zv_params = {'mu': 0.02, 'theta': 0.01, 'sigma': 0.005, 'X0': 0.02}
-    oas_params = {'mu': 0.01, 'theta': 0.01, 'sigma': 0.005, 'X0': 0.01}
-    sigma_r_params = {'mu': 0.02, 'theta': 0.01, 'sigma': 0.002, 'X0': 0.02}
-    nu_r_params = {'mu': 0.01, 'theta': 0.01, 'sigma': 0.002, 'X0': 0.01}
+    zv_params = {'mu': 0.005, 'theta': 0.01, 'sigma': 0.002, 'X0': 0.008}
+    oas_params = {'mu': 0.003, 'theta': 0.02, 'sigma': 0.001, 'X0': 0.002}
+    zv_oas_rho = 0.8
+    sigma_r_params = {'mu': 0.002, 'theta': 0.01, 'sigma': 0.001, 'X0': 0.002}
+    nu_r_params = {'mu': 0.001, 'theta': 0.01, 'sigma': 0.001, 'X0': 0.001}
 
     # Mock data simulation parameters
     train_start_date = '2013-01-01'
@@ -245,7 +390,7 @@ def main() -> None:
 
     # Generate training data
     zv_data, oas_data, sigma_r_data, nu_r_data = generate_training_data(
-        zv_params, oas_params, sigma_r_params, nu_r_params,
+        zv_params, oas_params, zv_oas_rho, sigma_r_params, nu_r_params,
         train_start_date, train_end_date, freq, seed
     )
     cvx_data = zv_data - oas_data
@@ -275,6 +420,7 @@ def main() -> None:
     S_OAS_init = float(oas_data.iloc[-1])
     C_init = float(cvx_data.iloc[-1])
     S_OAS_inf = float(np.mean(oas_data))
+    C_CC = 0.004
     num_paths = 1000  # Number of Monte Carlo paths
 
     # Create model instance
@@ -286,6 +432,7 @@ def main() -> None:
         S_OAS_init,
         C_init,
         S_OAS_inf,
+        C_CC,
         sigma_r_forward.values,
         nu_r_forward.values,
         num_paths,
@@ -303,11 +450,11 @@ def main() -> None:
     # Plot OAS
     paths_OAS = pd.DataFrame(paths_OAS).T
     paths_OAS.index = pd.date_range(start=oas_data.index[-1], periods=steps, freq='B')
-    OAS = pd.concat([oas_data, paths_OAS], axis=1)
-    axs[0].plot(OAS, color='lightblue', alpha=0.1)
-    axs[0].plot(oas_data, color='darkblue', label='OAS')
-    axs[0].axhline(y=expected_value_OAS, color='lightblue', linestyle='--', label='Projected OAS')
-    axs[0].axhline(y=oas_data.mean(), color='darkblue', linestyle='--', label='Historical Mean')
+    OAS = pd.concat([oas_data, paths_OAS], axis=1).mul(1e4)
+    axs[0].plot(OAS.iloc[:, 0], color='darkblue', label='OAS')
+    axs[0].plot(OAS.iloc[:, 1:], color='lightblue', alpha=0.1)
+    axs[0].axhline(y=expected_value_OAS * 1e4, color='lightblue', linestyle='--', label='Projected OAS')
+    axs[0].axhline(y=OAS.iloc[:, 0].mean(), color='darkblue', linestyle='--', label='Historical Mean')
     axs[0].set_title('Monte Carlo Simulation of OAS')
     axs[0].set_xlabel('')
     axs[0].set_ylabel('OAS')
@@ -316,11 +463,11 @@ def main() -> None:
     # Plot Convexity
     paths_C = pd.DataFrame(paths_C).T
     paths_C.index = pd.date_range(start=cvx_data.index[-1], periods=steps, freq='B')
-    C = pd.concat([cvx_data, paths_C], axis=1)
-    axs[1].plot(C, color='lightgreen', alpha=0.1)
-    axs[1].plot(cvx_data, color='darkgreen', label='Convexity')
-    axs[1].axhline(y=expected_value_C, color='lightgreen', linestyle='--', label='Projected Convexity')
-    axs[1].axhline(y=cvx_data.mean(), color='darkgreen', linestyle='--', label='Historical Mean')
+    C = pd.concat([cvx_data, paths_C], axis=1).mul(1e4)
+    axs[1].plot(C.iloc[:, 0], color='darkgreen', label='Convexity')
+    axs[1].plot(C.iloc[:, 1:], color='lightgreen', alpha=0.1)
+    axs[1].axhline(y=expected_value_C * 1e4, color='lightgreen', linestyle='--', label='Projected Convexity')
+    axs[1].axhline(y=C.iloc[:, 0].mean(), color='darkgreen', linestyle='--', label='Historical Mean')
     axs[1].set_title('Monte Carlo Simulation of Convexity')
     axs[1].set_xlabel('')
     axs[1].set_ylabel('Convexity')

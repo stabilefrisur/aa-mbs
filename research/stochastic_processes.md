@@ -1,4 +1,4 @@
-# Stochastic Processes: Geometric Brownian Motion and Mean Reversion
+# Stochastic Processes
 
 ## Introduction
 
@@ -89,3 +89,68 @@ where \( Z_n \) are independent standard normal random variables (i.e., \( Z_n \
 | **Distribution**        | Log-Normal                      | Normal                       |
 | **Typical Use Cases**   | Stock Prices, Commodity Prices  | Interest Rates, Volatility, Credit Spreads |
 | **Mean-Reverting**      | No                              | Yes                          |
+
+## Correlated Mean Reversion Processes
+
+### Continuous-Time Model
+
+Two correlated mean reversion processes can be described by the following system of stochastic differential equations (SDEs):
+
+$$
+\begin{aligned}
+dX_t^1 &= \theta_1 (\mu_1 - X_t^1) dt + \sigma_1 dW_t^1, \\
+dX_t^2 &= \theta_2 (\mu_2 - X_t^2) dt + \sigma_2 dW_t^2,
+\end{aligned}
+$$
+
+where:
+- \( X_t^1 \) and \( X_t^2 \) are the state variables of the two processes.
+- \( \theta_1 \) and \( \theta_2 \) are the speeds of reversion to the means \( \mu_1 \) and \( \mu_2 \), respectively.
+- \( \sigma_1 \) and \( \sigma_2 \) are the volatility coefficients.
+- \( W_t^1 \) and \( W_t^2 \) are Wiener processes (standard Brownian motions) with a constant correlation \( \rho \).
+
+### Discretization Using Euler-Maruyama Method
+
+To discretize the correlated mean reversion processes using the Euler-Maruyama method, we approximate the continuous-time processes with discrete-time steps. Let \( \Delta t \) be the time step size, and let \( t_n = n \Delta t \) for \( n = 0, 1, 2, \ldots \). The discretized version of the SDEs is given by:
+
+$$
+\begin{aligned}
+X_{t_{n+1}}^1 &= X_{t_n}^1 + \theta_1 (\mu_1 - X_{t_n}^1) \Delta t + \sigma_1 \sqrt{\Delta t} Z_n^1, \\
+X_{t_{n+1}}^2 &= X_{t_n}^2 + \theta_2 (\mu_2 - X_{t_n}^2) \Delta t + \sigma_2 \sqrt{\Delta t} Z_n^2,
+\end{aligned}
+$$
+
+where \( Z_n^1 \) and \( Z_n^2 \) are correlated standard normal random variables with correlation \( \rho \). To generate these correlated normal variables, we use the Cholesky decomposition of the correlation matrix:
+
+$$
+\begin{aligned}
+\begin{bmatrix}
+Z_n^1 \\
+Z_n^2
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 & 0 \\
+\rho & \sqrt{1 - \rho^2}
+\end{bmatrix}
+\begin{bmatrix}
+\tilde{Z}_n^1 \\
+\tilde{Z}_n^2
+\end{bmatrix},
+\end{aligned}
+$$
+
+where \( \tilde{Z}_n^1 \) and \( \tilde{Z}_n^2 \) are independent standard normal random variables.
+
+### Properties
+
+- **Stationarity**: The correlated mean reversion processes are stationary, meaning their statistical properties, such as mean and variance, remain constant over time.
+- **Mean-Reverting Behavior**: Both processes tend to move towards their respective long-term mean levels \( \mu_1 \) and \( \mu_2 \) over time.
+- **Bounded Fluctuations**: The state variables \( X_t^1 \) and \( X_t^2 \) fluctuate around their mean levels, making them suitable for modeling variables that exhibit cyclical behavior.
+- **Correlation**: The processes exhibit a constant correlation \( \rho \), which can be used to model the relationship between two mean-reverting variables.
+
+### Typical Use Cases
+
+- **Interest Rates**: Correlated mean reversion processes can be used to model the relationship between different interest rates that tend to revert to their long-term averages.
+- **Credit Spreads**: These processes can be used to model the relationship between different credit spreads, which tend to revert to their long-term averages due to changes in credit risk and economic conditions.
+- **Volatility**: Correlated mean reversion processes can also be used to model the relationship between different volatilities, which often exhibit mean-reverting behavior in financial markets.
