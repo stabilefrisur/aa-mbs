@@ -32,7 +32,7 @@ def main() -> None:
     # Mock data simulation parameters
     train_start_date = '2013-01-01'
     train_end_date = (pd.Timestamp.today() - pd.offsets.BDay(1)).strftime('%Y-%m-%d')
-    project_num_days = 4 * 252
+    project_num_days = 252
     freq = 'B'
 
     # Generate training data
@@ -68,6 +68,10 @@ def main() -> None:
     C_init = float(cvx_data.iloc[-1])
     num_paths = 1000  # Number of Monte Carlo paths
 
+    # Model parameter overrides for testing
+    kappa = 0.6
+    lambda_ = 0.6
+    
     # Create model instance
     model = JointReversionModel(kappa, lambda_, gamma, beta, sigma_O_0, delta, sigma_C, dt)
 

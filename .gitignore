@@ -2,8 +2,6 @@
 sample_data
 *.log
 todo.md
-todo.txt
-todo
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
