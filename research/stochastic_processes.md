@@ -20,7 +20,7 @@ where:
 - \( \sigma \) is the volatility coefficient.
 - \( W_t \) is a Wiener process (standard Brownian motion).
 
-### Discretization Using Euler-Maruyama Method
+### Discretization
 
 To discretize the SDE using the Euler-Maruyama method, we approximate the continuous-time process with discrete-time steps. Let \( \Delta t \) be the time step size, and let \( t_n = n \Delta t \) for \( n = 0, 1, 2, \ldots \). The discretized version of the SDE is given by:
 
@@ -45,7 +45,7 @@ where \( Z_n \) are independent standard normal random variables (i.e., \( Z_n \
 
 ### Continuous-Time Model
 
-A mean reversion process is described by the following SDE:
+A mean reversion process, also know as Ornstein-Uhlenbeck process, is described by the following SDE:
 
 $$
 dX_t = \theta (\mu - X_t) dt + \sigma dW_t
@@ -58,7 +58,7 @@ where:
 - \( \sigma \) is the volatility coefficient.
 - \( W_t \) is a Wiener process (standard Brownian motion).
 
-### Discretization Using Euler-Maruyama Method
+### Discretization
 
 To discretize the mean reversion process using the Euler-Maruyama method, we approximate the continuous-time process with discrete-time steps. Let \( \Delta t \) be the time step size, and let \( t_n = n \Delta t \) for \( n = 0, 1, 2, \ldots \). The discretized version of the SDE is given by:
 
@@ -109,7 +109,7 @@ where:
 - \( \sigma_1 \) and \( \sigma_2 \) are the volatility coefficients.
 - \( W_t^1 \) and \( W_t^2 \) are Wiener processes (standard Brownian motions) with a constant correlation \( \rho \).
 
-### Discretization Using Euler-Maruyama Method
+### Discretization
 
 To discretize the correlated mean reversion processes using the Euler-Maruyama method, we approximate the continuous-time processes with discrete-time steps. Let \( \Delta t \) be the time step size, and let \( t_n = n \Delta t \) for \( n = 0, 1, 2, \ldots \). The discretized version of the SDEs is given by:
 

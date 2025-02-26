@@ -37,13 +37,13 @@ I propose a **Joint Reversion Model** for OAS and Convexity, explicitly incorpor
 - OAS follows a mean-reverting process toward a long-run equilibrium $S_{OAS}^{\infty}$, integrating convexity and external influences:
   
   $$
-  dS_{OAS} = -\kappa \left(S_{OAS} - S_{OAS}^{\infty} - \gamma_0 C - \gamma_1 \sigma_r - \gamma_2 \nu_r\right) dt + \sigma_O dW_O.
+  dS_{OAS} = \kappa \left(S_{OAS}^{\infty} - S_{OAS}\right) dt + \left(\gamma_0 C + \gamma_1 \sigma_r + \gamma_2 \nu_r\right) dt + \sigma_O dW_O.
   $$
   
-- Convexity follows a mean-reverting process toward the convexity of Current Coupon (CC) bonds $C^{CC}$, which itself is influenced by the level of interest rates:
+- Convexity follows a mean-reverting process toward the convexity of Current Coupon (CC) bonds $C^{CC}$, which itself is influenced by the level of interest rates (not modelled here):
   
   $$
-  dC = -\lambda \left(C - C^{CC} - \beta_0 S_{OAS} - \beta_1 \sigma_r - \beta_2 \nu_r\right) dt + \sigma_C dW_C.
+  dC = \lambda \left(C^{CC} - C\right) dt + \left(\beta_0 S_{OAS} + \beta_1 \sigma_r + \beta_2 \nu_r\right) dt + \sigma_C dW_C.
   $$
 
 - $\kappa$ and $\lambda$ are parameters which describe the speed of reversion of the OAS and Convexity processes to their respective equilibriums.
@@ -73,7 +73,7 @@ The continuous-time model for OAS and Convexity is given by:
 
 1. **OAS Process**: 
    $$
-   dS_{OAS} = -\kappa \left(S_{OAS} - S_{OAS}^{\infty} - \gamma_0 C - \gamma_1 \sigma_r - \gamma_2 \nu_r\right) dt + \sigma_O dW_O 
+   dS_{OAS} = \kappa \left(S_{OAS}^{\infty} - S_{OAS}\right) dt + \left(\gamma_0 C + \gamma_1 \sigma_r + \gamma_2 \nu_r\right) dt + \sigma_O dW_O 
    $$
    where 
    $$
@@ -82,7 +82,7 @@ The continuous-time model for OAS and Convexity is given by:
 
 2. **Convexity Process**: 
    $$
-   dC = -\lambda \left(C - C^{CC} - \beta_0 S_{OAS} - \beta_1 \sigma_r - \beta_2 \nu_r\right) dt + \sigma_C dW_C 
+   dC = \lambda \left(C^{CC}- C\right) dt + \left(\beta_0 S_{OAS} + \beta_1 \sigma_r + \beta_2 \nu_r\right) dt + \sigma_C dW_C 
    $$
 
 #### Discretisation Using Euler-Maruyama Method
@@ -90,7 +90,7 @@ To discretise these equations, we approximate the continuous-time processes with
 
 1. **Discretized OAS Process**: 
    $$
-   S_{OAS}(t_{n+1}) = S_{OAS}(t_n) - \kappa \left(S_{OAS}(t_n) - S_{OAS}^{\infty} - \gamma_0 C(t_n) - \gamma_1 \sigma_r(t_n) - \gamma_2 \nu_r(t_n)\right) \Delta t + \sigma_O(t_n) \sqrt{\Delta t} \cdot Z_O 
+   S_{OAS}(t_{n+1}) = S_{OAS}(t_n) + \kappa \left(S_{OAS}^{\infty} - S_{OAS}(t_n)\right) \Delta t + \left(\gamma_0 C(t_n) + \gamma_1 \sigma_r(t_n) + \gamma_2 \nu_r(t_n)\right) \Delta t + \sigma_O(t_n) \sqrt{\Delta t} \cdot Z_O 
    $$
    where 
    $$
@@ -99,7 +99,7 @@ To discretise these equations, we approximate the continuous-time processes with
 
 2. **Discretized Convexity Process**: 
    $$
-   C(t_{n+1}) = C(t_n) - \lambda \left(C(t_n) - C^{CC} - \beta_0 S_{OAS}(t_n) - \beta_1 \sigma_r(t_n) - \beta_2 \nu_r(t_n)\right) \Delta t + \sigma_C \sqrt{\Delta t} \cdot Z_C 
+   C(t_{n+1}) = C(t_n) + \lambda \left(C^{CC}- C(t_n)\right) \Delta t + \left(\beta_0 S_{OAS}(t_n) + \beta_1 \sigma_r(t_n) + \beta_2 \nu_r(t_n)\right) \Delta t + \sigma_C \sqrt{\Delta t} \cdot Z_C 
    $$
 
 Here, $Z_O$ and $Z_C$ are independent standard normal random variables (i.e., $Z_O, Z_C \sim \mathcal{N}(0, 1) $) representing the Wiener processes $dW_O$ and $dW_C$.
@@ -108,7 +108,7 @@ Here, $Z_O$ and $Z_C$ are independent standard normal random variables (i.e., $Z
 
 1. **Data Acquisition and Preprocessing**:
    - Collect historical time series for OAS, Z-Spread, interest rate vol ($\sigma_r$), and vol of vol ($\nu_r$).
-   - Compute convexity as $C = S_Z - S_{OAS}$.
+   - Compute convexity as $C = S_{ZV} - S_{OAS}$.
    - Standardise and clean data to remove structural breaks and extreme outliers.
 
 2. **Mean Reversion Parameter Estimation**:

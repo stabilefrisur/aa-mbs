@@ -1,4 +1,6 @@
-## 4. Accounting for Funding Costs in TBA vs. Pools
+# MBS Carry Model
+
+## Accounting for Funding Costs in TBA vs. Pools
 
 - **TBA Market Characteristics**:
   - Greater liquidity but introduces cheapest-to-deliver risk.

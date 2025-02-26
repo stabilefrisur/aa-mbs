@@ -32,7 +32,7 @@ def main() -> None:
     # Mock data simulation parameters
     train_start_date = '2013-01-01'
     train_end_date = (pd.Timestamp.today() - pd.offsets.BDay(1)).strftime('%Y-%m-%d')
-    project_num_days = 252
+    project_num_days = 4 * 252
     freq = 'B'
 
     # Generate training data
@@ -53,21 +53,19 @@ def main() -> None:
 
     # Stationarity tests
     adf_OAS, adf_C = stationarity_tests(oas_data, cvx_data)
-    print(f'ADF Test for OAS: {adf_OAS}')
-    print(f'ADF Test for Convexity: {adf_C}')
 
     # Estimate model parameters
-    kappa, lambda_, gamma, beta, sigma_O_0, delta, sigma_C = estimate_parameters(
-        oas_data.values, cvx_data.values, sigma_r_data.values, nu_r_data.values
+    S_OAS_inf = float(np.mean(oas_data))
+    C_CC = 0.004
+    kappa, gamma, sigma_O_0, delta, lambda_, beta, sigma_C = estimate_parameters(
+        oas_data.values, cvx_data.values, sigma_r_data.values, nu_r_data.values, S_OAS_inf, C_CC
     )
 
     # Monte Carlo simulation parameters
     dt = 0.01
-    steps = 252  # Assuming 252 trading days in a year
+    steps = project_num_days  # Assuming 252 trading days in a year
     S_OAS_init = float(oas_data.iloc[-1])
     C_init = float(cvx_data.iloc[-1])
-    S_OAS_inf = float(np.mean(oas_data))
-    C_CC = 0.004
     num_paths = 1000  # Number of Monte Carlo paths
 
     # Create model instance
@@ -101,7 +99,7 @@ def main() -> None:
     axs[0].plot(OAS.iloc[:, 0], color='darkblue', label='OAS')
     axs[0].plot(OAS.iloc[:, 1:], color='lightblue', alpha=0.1)
     axs[0].axhline(y=expected_value_OAS * 1e4, color='lightblue', linestyle='--', label='Projected OAS')
-    axs[0].axhline(y=OAS.iloc[:, 0].mean(), color='darkblue', linestyle='--', label='Historical Mean')
+    axs[0].axhline(y=S_OAS_inf * 1e4, color='darkblue', linestyle='--', label='Reversion Level')
     axs[0].set_title('Monte Carlo Simulation of OAS')
     axs[0].set_xlabel('')
     axs[0].set_ylabel('OAS')
@@ -114,7 +112,7 @@ def main() -> None:
     axs[1].plot(C.iloc[:, 0], color='darkgreen', label='Convexity')
     axs[1].plot(C.iloc[:, 1:], color='lightgreen', alpha=0.1)
     axs[1].axhline(y=expected_value_C * 1e4, color='lightgreen', linestyle='--', label='Projected Convexity')
-    axs[1].axhline(y=C.iloc[:, 0].mean(), color='darkgreen', linestyle='--', label='Historical Mean')
+    axs[1].axhline(y=C_CC * 1e4, color='darkgreen', linestyle='--', label='Reversion Level')
     axs[1].set_title('Monte Carlo Simulation of Convexity')
     axs[1].set_xlabel('')
     axs[1].set_ylabel('Convexity')

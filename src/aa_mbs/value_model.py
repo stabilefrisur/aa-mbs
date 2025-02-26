@@ -8,8 +8,8 @@ class JointReversionModel:
     """Joint Reversion Model for OAS and Convexity.
 
     The model is defined by the following stochastic differential equations:
-    dS_OAS = -kappa * (S_OAS - S_OAS_inf - gamma * C) * dt + sigma_O * dW_O
-    dC = -lambda * (C - C_CC - beta * S_OAS) * dt + sigma_C * dW_C
+    dS_OAS = kappa * (S_OAS_inf - S_OAS) * dt + (gamma_0 * C + gamma_1 * sigma_r + gamma_2 * nu_r) * dt + sigma_O * dW_O
+    dC = lambda * (C_CC - C) * dt + (beta_0 * S_OAS + beta_1 * sigma_r + beta_2 * nu_r) * dt + sigma_C * dW_C
     where:
     - S_OAS is the OAS spread.
     - C is the Convexity.
@@ -129,13 +129,15 @@ class JointReversionModel:
 
             S_OAS[t] = (
                 float(S_OAS[t - 1])
-                - self.kappa * (float(S_OAS[t - 1]) - S_OAS_inf - gamma_term) * self.dt
+                + self.kappa * (S_OAS_inf - float(S_OAS[t - 1])) * self.dt
+                + gamma_term * self.dt
                 + sigma_O[t - 1] * np.sqrt(self.dt) * Z_O
             )
 
             C[t] = (
                 float(C[t - 1])
-                - self.lambda_ * (float(C[t - 1]) - C_CC - beta_term) * self.dt
+                + self.lambda_ * (C_CC - float(C[t - 1])) * self.dt
+                + beta_term * self.dt
                 + self.sigma_C * np.sqrt(self.dt) * Z_C
             )
 
@@ -149,7 +151,10 @@ def estimate_parameters(
     C: np.ndarray,
     sigma_r: np.ndarray,
     nu_r: np.ndarray,
-    initial_guess: tuple[float, float] = (0.05, 0.2)
+    S_OAS_inf: float,
+    C_CC: float,
+    initial_guess: tuple[float, float] = (0.05, 0.2),
+    verbose: bool = True,
 ) -> tuple[float, float, list[float], list[float], float, float, float]:
     """Estimate the parameters of the joint reversion model using OLS.
 
@@ -158,65 +163,41 @@ def estimate_parameters(
         C (np.ndarray): Convexity time series.
         sigma_r (np.ndarray): Volatility of interest rates time series.
         nu_r (np.ndarray): Volatility of volatility of interest rates time series.
+        S_OAS_inf (float): Long-term mean of OAS spread.
+        C_CC (float): Convexity of the current coupon bond (or TBA).
         initial_guess (tuple[float, float], optional): Initial guess for the residual variance parameters. Defaults to (0.05, 0.2).
 
     Returns:
-        tuple[float, float, list[float], list[float], float, float, float]: Estimated parameters of the Joint Reversion Model.
+        tuple[float, list[float], float, float, float, list[float], float]: Estimated parameters.
 
         Estimated parameters:
         - kappa: Reversion speed for OAS.
-        - lambda_: Reversion speed for Convexity.
         - gamma: Interest rate interaction coefficients for OAS.
-        - beta: Interest rate interaction coefficients for Convexity.
         - sigma_O_0: Initial volatility of OAS.
         - delta: Convexity volatility coefficient.
+        - lambda_: Reversion speed for Convexity.
+        - beta: Interest rate interaction coefficients for Convexity.
         - sigma_C: Volatility of Convexity.
-
-    The model is estimated using Ordinary Least Squares (OLS) regression.
-    OLS minimizes the sum of squared differences between the observed values and the values predicted by the model.
-
-    The residual variance is calibrated using the following function:
-    residuals_OAS = y_OAS - kappa * (S_OAS - gamma * C - sigma_r - nu_r)
-    residuals_C = y_C - lambda_ * (C - beta * S_OAS - sigma_r - nu_r)
-    variance_function = sum((residuals_OAS**2 - (sigma_O_0**2 + delta * C**2))**2)
-
-    The variance function is minimized using the Nelder-Mead method.
-
-    Reference:
-    - https://en.wikipedia.org/wiki/Ordinary_least_squares
-    - https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
     """
     # Mean Reversion Parameter Estimation using OLS
-    X_OAS = np.column_stack(
-        [np.ones(len(S_OAS) - 1), S_OAS[:-1], C[:-1], sigma_r[:-1], nu_r[:-1]]
-    )
-    y_OAS = S_OAS[1:]
-    kappa, gamma_0, gamma_1, gamma_2 = np.linalg.lstsq(X_OAS, y_OAS, rcond=None)[0][1:]
+    X_OAS = np.vstack([S_OAS_inf - S_OAS[:-1], C[:-1], sigma_r[:-1], nu_r[:-1]]).T
+    y_OAS = S_OAS[1:] - S_OAS[:-1]
+    X_C = np.vstack([C_CC - C[:-1], S_OAS[:-1], sigma_r[:-1], nu_r[:-1]]).T
+    y_C = C[1:] - C[:-1]
 
-    X_C = np.column_stack(
-        [np.ones(len(C) - 1), C[:-1], S_OAS[:-1], sigma_r[:-1], nu_r[:-1]]
-    )
-    y_C = C[1:]
-    lambda_, beta_0, beta_1, beta_2 = np.linalg.lstsq(X_C, y_C, rcond=None)[0][1:]
+    # OLS regression for OAS
+    ols_OAS = np.linalg.lstsq(X_OAS, y_OAS, rcond=None)[0]
+    kappa, gamma_0, gamma_1, gamma_2 = ols_OAS
+
+    # OLS regression for Convexity
+    ols_C = np.linalg.lstsq(X_C, y_C, rcond=None)[0]
+    lambda_, beta_0, beta_1, beta_2 = ols_C
+
+    # Residuals for variance calibration
+    residuals_OAS = y_OAS - X_OAS @ ols_OAS
+    residuals_C = y_C - X_C @ ols_C
 
     # Residual Variance Calibration
-    residuals_OAS = (
-        y_OAS - kappa * (
-            S_OAS[:-1] 
-            - gamma_0 * C[:-1] 
-            - gamma_1 * sigma_r[:-1] 
-            - gamma_2 * nu_r[:-1]
-        )
-    )
-    residuals_C = (
-        y_C - lambda_ * (
-            C[:-1] 
-            - beta_0 * S_OAS[:-1] 
-            - beta_1 * sigma_r[:-1] 
-            - beta_2 * nu_r[:-1]
-        )
-    )
-
     def variance_function(params):
         sigma_O_0, delta = params
         return np.sum((residuals_OAS**2 - (sigma_O_0**2 + delta * C[:-1] ** 2)) ** 2)
@@ -225,20 +206,32 @@ def estimate_parameters(
 
     sigma_C = np.std(residuals_C)
 
+    if verbose:
+        print("\nEstimated Parameters:")
+        print(f"kappa: {kappa:.4f}")
+        print(f"gamma: {gamma_0:.4f}, {gamma_1:.4f}, {gamma_2:.4f}")
+        print(f"sigma_O_0: {sigma_O_0:.4f}")
+        print(f"delta: {delta:.4f}")
+        print(f"lambda: {lambda_:.4f}")
+        print(f"beta: {beta_0:.4f}, {beta_1:.4f}, {beta_2:.4f}")
+        print(f"sigma_C: {sigma_C:.4f}")
+        print()
+
     return (
         kappa,
-        lambda_,
         [gamma_0, gamma_1, gamma_2],
-        [beta_0, beta_1, beta_2],
         sigma_O_0,
         delta,
+        lambda_,
+        [beta_0, beta_1, beta_2],
         sigma_C,
     )
 
 
 def stationarity_tests(
     S_OAS: pd.Series,
-    C: pd.Series
+    C: pd.Series,
+    verbose: bool = True,
 ) -> tuple[
     tuple[float, float, int, int, dict, float],
     tuple[float, float, int, int, dict, float],
@@ -273,6 +266,30 @@ def stationarity_tests(
     """
     adf_OAS = adfuller(S_OAS)
     adf_C = adfuller(C)
+
+    if verbose:
+        # Print ADF test results
+        print("\nAugmented Dickey-Fuller Test for OAS:")
+        print(f"Test Statistic: {adf_OAS[0]:.4f}")
+        print(f"P-Value: {adf_OAS[1]:.4f}")
+        print(f"Lags Used: {adf_OAS[2]:.0f}")
+        print(f"Observations Used: {adf_OAS[3]:.0f}")
+        print("Critical Values:")
+        for key, value in adf_OAS[4].items():
+            print(f"  {key}: {value:.4f}")
+        print(f"Max Information Criteria: {adf_OAS[5]:.4f}")
+        print()
+
+        print("Augmented Dickey-Fuller Test for Convexity:")
+        print(f"Test Statistic: {adf_C[0]:.4f}")
+        print(f"P-Value: {adf_C[1]:.4f}")
+        print(f"Lags Used: {adf_C[2]:.0f}")
+        print(f"Observations Used: {adf_C[3]:.0f}")
+        print("Critical Values:")
+        for key, value in adf_C[4].items():
+            print(f"  {key}: {value:.4f}")
+        print(f"Max Information Criteria: {adf_C[5]:.4f}")
+        print()
 
     return adf_OAS, adf_C
 
