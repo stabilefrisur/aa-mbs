@@ -113,7 +113,8 @@ Here, $Z_O$ and $Z_C$ are independent standard normal random variables (i.e., $Z
 
 2. **Mean Reversion Parameter Estimation**:
    - Estimate parameters $\kappa, \lambda, \gamma, \beta$ using historical data.
-   - Perform Ordinary Least Squares (OLS) regression on mean-reverting OAS and convexity dynamics.
+   - Perform Ordinary Least Squares (OLS) regression on OAS and Convexity. 
+   - Perform Maximum Likelihood Estimation (MLE) on OAS and Convexity, using OLS esimates as initial guess.
    - Conduct stationarity tests (e.g., Augmented Dickey-Fuller) to validate model assumptions.
    - Use the discretized equations to simulate the mean-reverting processes and compare with historical data for validation.
 

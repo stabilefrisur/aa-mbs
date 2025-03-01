@@ -3,7 +3,13 @@ import numpy as np
 import pandas as pd
 
 from aa_mbs.mock_data import generate_forward_data, generate_training_data
-from aa_mbs.value_model import JointReversionModel, estimate_parameters, monte_carlo_simulation, stationarity_tests
+from aa_mbs.value_model import (
+    JointReversionModel,
+    estimate_parameters_ols,
+    estimate_parameters_mle,
+    monte_carlo_simulation,
+    stationarity_tests,
+)
 
 
 def main() -> None:
@@ -15,12 +21,13 @@ def main() -> None:
     3. Generate training data for ZV, OAS, Rates Vol, and Rates Vol of Vol.
     4. Generate forward data for Rates Vol and Rates Vol of Vol.
     5. Perform stationarity tests for OAS and Convexity.
-    6. Estimate model parameters using OLS.
-    7. Perform Monte Carlo simulation.
-    8. Plot historical data and Monte Carlo paths.
+    6. Estimate model parameters using OLS to generate initial guess for MLE.
+    7. Estimate model parameters using MLE.
+    8. Perform Monte Carlo simulation.
+    9. Plot historical data and Monte Carlo paths.
     """
     # Set seed for reproducibility
-    seed = 42
+    seed = 44
 
     # Define variable parameters
     zv_params = {'mu': 0.005, 'theta': 0.01, 'sigma': 0.002, 'X0': 0.008}
@@ -37,8 +44,15 @@ def main() -> None:
 
     # Generate training data
     zv_data, oas_data, sigma_r_data, nu_r_data = generate_training_data(
-        zv_params, oas_params, zv_oas_rho, sigma_r_params, nu_r_params,
-        train_start_date, train_end_date, freq, seed
+        zv_params,
+        oas_params,
+        zv_oas_rho,
+        sigma_r_params,
+        nu_r_params,
+        train_start_date,
+        train_end_date,
+        freq,
+        seed,
     )
     cvx_data = zv_data - oas_data
 
@@ -54,29 +68,89 @@ def main() -> None:
     # Stationarity tests
     adf_OAS, adf_C = stationarity_tests(oas_data, cvx_data)
 
-    # Estimate model parameters
+    # Estimate model parameters using OLS
     S_OAS_inf = float(np.mean(oas_data))
     C_CC = 0.004
-    kappa, gamma, sigma_O_0, delta, lambda_, beta, sigma_C = estimate_parameters(
-        oas_data.values, cvx_data.values, sigma_r_data.values, nu_r_data.values, S_OAS_inf, C_CC
+    (
+        kappa_ols,
+        gamma_ols,
+        sigma_O_0_ols,
+        delta_ols,
+        lambda_ols,
+        beta_ols,
+        sigma_C_ols,
+    ) = estimate_parameters_ols(
+        oas_data.values,
+        cvx_data.values,
+        sigma_r_data.values,
+        nu_r_data.values,
+        S_OAS_inf,
+        C_CC,
+    )
+
+    # Use OLS estimates as initial guess for MLE
+    initial_guess = (
+        kappa_ols,
+        gamma_ols[0],
+        gamma_ols[1],
+        gamma_ols[2],
+        sigma_O_0_ols,
+        delta_ols,
+        lambda_ols,
+        beta_ols[0],
+        beta_ols[1],
+        beta_ols[2],
+        sigma_C_ols,
+    )
+
+    # Estimate model parameters using MLE
+    (
+        kappa_mle,
+        gamma_mle,
+        sigma_O_0_mle,
+        delta_mle,
+        lambda_mle,
+        beta_mle,
+        sigma_C_mle,
+    ) = estimate_parameters_mle(
+        oas_data.values,
+        cvx_data.values,
+        sigma_r_data.values,
+        nu_r_data.values,
+        S_OAS_inf,
+        C_CC,
+        dt=1 / 252,
+        initial_guess=initial_guess,
     )
 
     # Monte Carlo simulation parameters
-    dt = 0.01
+    dt = 1 / 252
     steps = project_num_days  # Assuming 252 trading days in a year
     S_OAS_init = float(oas_data.iloc[-1])
     C_init = float(cvx_data.iloc[-1])
     num_paths = 1000  # Number of Monte Carlo paths
 
-    # Model parameter overrides for testing
-    kappa = 0.6
-    lambda_ = 0.6
-    
-    # Create model instance
-    model = JointReversionModel(kappa, lambda_, gamma, beta, sigma_O_0, delta, sigma_C, dt)
+    # Create model instance with MLE parameters
+    model = JointReversionModel(
+        kappa_mle,
+        lambda_mle,
+        gamma_mle,
+        beta_mle,
+        sigma_O_0_mle,
+        delta_mle,
+        sigma_C_mle,
+        dt,
+    )
 
     # Perform Monte Carlo simulation
-    expected_value_OAS, expected_value_C, expected_value_sigma_O, paths_OAS, paths_C, paths_sigma_O = monte_carlo_simulation(
+    (
+        expected_value_OAS,
+        expected_value_C,
+        expected_value_sigma_O,
+        paths_OAS,
+        paths_C,
+        paths_sigma_O,
+    ) = monte_carlo_simulation(
         model,
         S_OAS_init,
         C_init,
@@ -86,12 +160,14 @@ def main() -> None:
         nu_r_forward.values,
         num_paths,
         steps,
-        seed
+        seed,
     )
 
     print(f'Expected value of OAS in one year: {expected_value_OAS * 1e4:.0f} bps')
     print(f'Expected value of Convexity in one year: {expected_value_C * 1e4:.0f} bps')
-    print(f'Expected value of Sigma_O in one year: {expected_value_sigma_O * 1e4:.0f} bps')
+    print(
+        f'Expected value of Sigma_O in one year: {expected_value_sigma_O * 1e4:.0f} bps'
+    )
 
     # Plot historical data and Monte Carlo paths
     fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(10, 8))
@@ -102,8 +178,15 @@ def main() -> None:
     OAS = pd.concat([oas_data, paths_OAS], axis=1).mul(1e4)
     axs[0].plot(OAS.iloc[:, 0], color='darkblue', label='OAS')
     axs[0].plot(OAS.iloc[:, 1:], color='lightblue', alpha=0.1)
-    axs[0].axhline(y=expected_value_OAS * 1e4, color='lightblue', linestyle='--', label='Projected OAS')
-    axs[0].axhline(y=S_OAS_inf * 1e4, color='darkblue', linestyle='--', label='Reversion Level')
+    axs[0].axhline(
+        y=expected_value_OAS * 1e4,
+        color='lightblue',
+        linestyle='--',
+        label='Projected OAS',
+    )
+    axs[0].axhline(
+        y=S_OAS_inf * 1e4, color='darkblue', linestyle='--', label='Reversion Level'
+    )
     axs[0].set_title('Monte Carlo Simulation of OAS')
     axs[0].set_xlabel('')
     axs[0].set_ylabel('OAS')
@@ -115,8 +198,15 @@ def main() -> None:
     C = pd.concat([cvx_data, paths_C], axis=1).mul(1e4)
     axs[1].plot(C.iloc[:, 0], color='darkgreen', label='Convexity')
     axs[1].plot(C.iloc[:, 1:], color='lightgreen', alpha=0.1)
-    axs[1].axhline(y=expected_value_C * 1e4, color='lightgreen', linestyle='--', label='Projected Convexity')
-    axs[1].axhline(y=C_CC * 1e4, color='darkgreen', linestyle='--', label='Reversion Level')
+    axs[1].axhline(
+        y=expected_value_C * 1e4,
+        color='lightgreen',
+        linestyle='--',
+        label='Projected Convexity',
+    )
+    axs[1].axhline(
+        y=C_CC * 1e4, color='darkgreen', linestyle='--', label='Reversion Level'
+    )
     axs[1].set_title('Monte Carlo Simulation of Convexity')
     axs[1].set_xlabel('')
     axs[1].set_ylabel('Convexity')

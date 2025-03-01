@@ -4,7 +4,7 @@ from aa_mbs.mock_data import generate_training_data
 from aa_mbs.value_model import (
     JointReversionModel,
     monte_carlo_simulation,
-    estimate_parameters,
+    estimate_parameters_ols,
 )
 
 
@@ -54,7 +54,7 @@ def evaluate_frequency(
         resampled_data = resample_data(data, freq)
 
         # Estimate parameters using resampled data
-        kappa, gamma, sigma_O_0, delta, lambda_, beta, sigma_C = estimate_parameters(
+        kappa, gamma, sigma_O_0, delta, lambda_, beta, sigma_C = estimate_parameters_ols(
             resampled_data['oas'].values,
             resampled_data['cvx'].values,
             resampled_data['sigma_r'].values,
@@ -110,7 +110,7 @@ def evaluate_complexity(
 
     for complexity_name, complexity_params in complexities.items():
         # Estimate parameters using data
-        kappa, gamma, sigma_O_0, delta, lambda_, beta, sigma_C = estimate_parameters(
+        kappa, gamma, sigma_O_0, delta, lambda_, beta, sigma_C = estimate_parameters_ols(
             data['oas'].values,
             data['cvx'].values,
             data['sigma_r'].values,
@@ -167,7 +167,7 @@ def evaluate_in_vs_out_of_sample(
     results = {}
 
     # Estimate parameters using in-sample data
-    kappa, gamma, sigma_O_0, delta, lambda_, beta, sigma_C = estimate_parameters(
+    kappa, gamma, sigma_O_0, delta, lambda_, beta, sigma_C = estimate_parameters_ols(
         in_sample_data['oas'].values,
         in_sample_data['cvx'].values,
         in_sample_data['sigma_r'].values,

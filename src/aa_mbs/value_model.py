@@ -146,7 +146,7 @@ class JointReversionModel:
         return S_OAS, C, sigma_O
 
 
-def estimate_parameters(
+def estimate_parameters_ols(
     S_OAS: np.ndarray,
     C: np.ndarray,
     sigma_r: np.ndarray,
@@ -207,7 +207,95 @@ def estimate_parameters(
     sigma_C = np.std(residuals_C)
 
     if verbose:
-        print("\nEstimated Parameters:")
+        print("\nEstimated Parameters (OLS):")
+        print(f"kappa: {kappa:.4f}")
+        print(f"gamma: {gamma_0:.4f}, {gamma_1:.4f}, {gamma_2:.4f}")
+        print(f"sigma_O_0: {sigma_O_0:.4f}")
+        print(f"delta: {delta:.4f}")
+        print(f"lambda: {lambda_:.4f}")
+        print(f"beta: {beta_0:.4f}, {beta_1:.4f}, {beta_2:.4f}")
+        print(f"sigma_C: {sigma_C:.4f}")
+        print()
+
+    return (
+        kappa,
+        [gamma_0, gamma_1, gamma_2],
+        sigma_O_0,
+        delta,
+        lambda_,
+        [beta_0, beta_1, beta_2],
+        sigma_C,
+    )
+
+
+def estimate_parameters_mle(
+    S_OAS: np.ndarray,
+    C: np.ndarray,
+    sigma_r: np.ndarray,
+    nu_r: np.ndarray,
+    S_OAS_inf: float,
+    C_CC: float,
+    dt: float,
+    initial_guess: tuple[float, float, float, float, float, float, float, float, float, float, float, float] = (0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1),
+    verbose: bool = True,
+) -> tuple[float, list[float], float, float, float, list[float], float]:
+    """Estimate the parameters of the joint reversion model using MLE.
+
+    Args:
+        S_OAS (np.ndarray): OAS spread time series.
+        C (np.ndarray): Convexity time series.
+        sigma_r (np.ndarray): Volatility of interest rates time series.
+        nu_r (np.ndarray): Volatility of volatility of interest rates time series.
+        S_OAS_inf (float): Long-term mean of OAS spread.
+        C_CC (float): Convexity of the current coupon bond (or TBA).
+        dt (float): Time step size.
+        initial_guess (tuple[float, float, float, float, float, float, float, float, float, float, float, float], optional): Initial guess for the parameters. Defaults to (0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1).
+
+    Returns:
+        tuple[float, list[float], float, float, float, list[float], float]: Estimated parameters.
+
+        Estimated parameters:
+        - kappa: Reversion speed for OAS.
+        - gamma: Interest rate interaction coefficients for OAS.
+        - sigma_O_0: Initial volatility of OAS.
+        - delta: Convexity volatility coefficient.
+        - lambda_: Reversion speed for Convexity.
+        - beta: Interest rate interaction coefficients for Convexity.
+        - sigma_C: Volatility of Convexity.
+    """
+    def log_likelihood(params):
+        kappa, gamma_0, gamma_1, gamma_2, sigma_O_0, delta, lambda_, beta_0, beta_1, beta_2, sigma_C = params
+        n = len(S_OAS)
+        log_likelihood = 0
+        
+        for t in range(1, n):
+            S_OAS_prev = S_OAS[t-1]
+            C_prev = C[t-1]
+            sigma_r_prev = sigma_r[t-1]
+            nu_r_prev = nu_r[t-1]
+            
+            S_OAS_mean = S_OAS_prev + kappa * (S_OAS_inf - S_OAS_prev) * dt + \
+                         (gamma_0 * C_prev + gamma_1 * sigma_r_prev + gamma_2 * nu_r_prev) * dt
+            sigma_O = np.sqrt(sigma_O_0**2 + delta * C_prev**2)
+            
+            C_mean = C_prev + lambda_ * (C_CC - C_prev) * dt + \
+                     (beta_0 * S_OAS_prev + beta_1 * sigma_r_prev + beta_2 * nu_r_prev) * dt
+            
+            log_likelihood += -0.5 * np.log(2 * np.pi * sigma_O**2 * dt) - \
+                              0.5 * ((S_OAS[t] - S_OAS_mean)**2 / (sigma_O**2 * dt))
+            log_likelihood += -0.5 * np.log(2 * np.pi * sigma_C**2 * dt) - \
+                              0.5 * ((C[t] - C_mean)**2 / (sigma_C**2 * dt))
+        
+        return -log_likelihood
+
+    # Optimize the log-likelihood function
+    result = minimize(log_likelihood, initial_guess, method='L-BFGS-B')
+    
+    # Extract the estimated parameters
+    kappa, gamma_0, gamma_1, gamma_2, sigma_O_0, delta, lambda_, beta_0, beta_1, beta_2, sigma_C = result.x
+
+    if verbose:
+        print("\nEstimated Parameters (MLE):")
         print(f"kappa: {kappa:.4f}")
         print(f"gamma: {gamma_0:.4f}, {gamma_1:.4f}, {gamma_2:.4f}")
         print(f"sigma_O_0: {sigma_O_0:.4f}")
