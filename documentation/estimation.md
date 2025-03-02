@@ -15,12 +15,12 @@ $$
 y = X\beta + \epsilon
 $$
 where:
-- \( y \) is the vector of observed values.
-- \( X \) is the matrix of explanatory variables.
-- \( \beta \) is the vector of parameters to be estimated.
-- \( \epsilon \) is the vector of errors.
+- $ y $ is the vector of observed values.
+- $ X $ is the matrix of explanatory variables.
+- $ \beta $ is the vector of parameters to be estimated.
+- $ \epsilon $ is the vector of errors.
 
-The OLS estimator of \( \beta \) is given by:
+The OLS estimator of $ \beta $ is given by:
 $$
 \hat{\beta} = (X^TX)^{-1}X^Ty
 $$
@@ -43,7 +43,7 @@ For the Joint Reversion Model, we have two processes: OAS and Convexity. The dis
    C(t_{n+1}) = C(t_n) + \lambda \left(C^{CC}- C(t_n)\right) \Delta t + \left(\beta_0 S_{OAS}(t_n) + \beta_1 \sigma_r(t_n) + \beta_2 \nu_r(t_n)\right) \Delta t + \sigma_C \sqrt{\Delta t} \cdot Z_C 
    $$
 
-We perform OLS regression on the discretized equations to estimate the parameters \( \kappa, \lambda, \gamma, \beta \).
+We perform OLS regression on the discretized equations to estimate the parameters $ \kappa, \lambda, \gamma, \beta $.
 
 ## Maximum Likelihood Estimation (MLE)
 
@@ -53,7 +53,7 @@ Maximum Likelihood Estimation (MLE) is a method for estimating the parameters of
 
 ### Mathematical Formulation
 
-Given a likelihood function \( L(\theta; y) \), where \( \theta \) is the vector of parameters and \( y \) is the observed data, the MLE estimator of \( \theta \) is given by:
+Given a likelihood function $ L(\theta; y) $, where $ \theta $ is the vector of parameters and $ y $ is the observed data, the MLE estimator of $ \theta $ is given by:
 $$
 \hat{\theta} = \arg\max_{\theta} L(\theta; y)
 $$
@@ -88,7 +88,7 @@ $$
 ### Estimation Process
 
 1. **Initial Guess Using OLS**:
-   - Perform OLS regression on the discretized equations to obtain initial estimates for the parameters \( \kappa, \lambda, \gamma, \beta \).
+   - Perform OLS regression on the discretized equations to obtain initial estimates for the parameters $ \kappa, \lambda, \gamma, \beta $.
    - Use these OLS estimates as the initial guess for the MLE optimization.
 
 2. **MLE Optimization**:
@@ -121,22 +121,4 @@ $$
 
 3. **Computational Resources**:
    - While MLE can be computationally intensive, the use of good initial guesses from OLS can mitigate this issue, making the process more feasible even with limited computational resources.
-
-## Simulation of Stochastic Processes
-
-The final estimated parameters from MLE are used to simulate the stochastic processes for OAS and Convexity. 
-
-### Steps for Simulation
-
-1. **Initialize Parameters and Variables**:
-   - Set initial values for \( S_{OAS}(0) \) and \( C(0) \).
-   - Define the parameters \( \kappa, \lambda, \gamma_0, \gamma_1, \gamma_2, \beta_0, \beta_1, \beta_2, \sigma_{O,0}, \delta, \sigma_C \).
-
-2. **Iterate Over Time Steps**:
-   - For each time step \( t_n \):
-     - Generate random variables \( Z_O \) and \( Z_C \).
-     - Update \( S_{OAS} \) and \( C \) using the discretized equations.
-
-3. **Monte Carlo Simulation**:
-   - Run multiple simulations (e.g., 1000 paths) to estimate the expected value of OAS and Convexity in one year.
-   - Calculate the expected value by averaging the results of all simulations.
+   

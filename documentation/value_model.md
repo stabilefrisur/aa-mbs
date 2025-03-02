@@ -1,3 +1,5 @@
+<!-- <link rel="stylesheet" type="text/css" href="styles.css"> -->
+
 # Agency MBS Valuation Model
 
 ## 1. Model Derivation
@@ -104,7 +106,7 @@ To discretise these equations, we approximate the continuous-time processes with
 
 Here, $Z_O$ and $Z_C$ are independent standard normal random variables (i.e., $Z_O, Z_C \sim \mathcal{N}(0, 1) $) representing the Wiener processes $dW_O$ and $dW_C$.
 
-### Step-by-Step Implementation
+## 2. Model Implementation
 
 1. **Data Acquisition and Preprocessing**:
    - Collect historical time series for OAS, Z-Spread, interest rate vol ($\sigma_r$), and vol of vol ($\nu_r$).

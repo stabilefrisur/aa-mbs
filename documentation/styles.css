@@ -1,0 +1,21 @@
+body {
+    font-family: 'Arial', sans-serif;
+    color: #004F9F; /* Blue */
+}
+
+h1, h2, h3 {
+    color: #003366; /* Darker blue for headers */
+}
+
+code {
+    background-color: #E5F2FF; /* Light blue background for code blocks */
+    padding: 4px;
+    border-radius: 4px;
+}
+
+blockquote {
+    border-left: 4px solid #004F9F;
+    padding-left: 10px;
+    color: #003366;
+    font-style: italic;
+}

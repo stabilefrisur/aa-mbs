@@ -27,9 +27,9 @@ def main() -> None:
     9. Plot historical data and Monte Carlo paths.
     """
     # Set seed for reproducibility
-    seed = 44
+    seed = 43
 
-    # Define variable parameters
+    # Define training data parameters
     zv_params = {'mu': 0.005, 'theta': 0.01, 'sigma': 0.002, 'X0': 0.008}
     oas_params = {'mu': 0.003, 'theta': 0.02, 'sigma': 0.001, 'X0': 0.002}
     zv_oas_rho = 0.8
@@ -40,6 +40,7 @@ def main() -> None:
     train_start_date = '2013-01-01'
     train_end_date = (pd.Timestamp.today() - pd.offsets.BDay(1)).strftime('%Y-%m-%d')
     project_num_days = 252
+    dt = 1 / project_num_days
     freq = 'B'
 
     # Generate training data
@@ -57,8 +58,8 @@ def main() -> None:
     cvx_data = zv_data - oas_data
 
     # Update X0 for forward data
-    sigma_r_params['X0'] = sigma_r_data[-1]
-    nu_r_params['X0'] = nu_r_data[-1]
+    sigma_r_params['X0'] = sigma_r_data.iloc[-1]
+    nu_r_params['X0'] = nu_r_data.iloc[-1]
 
     # Generate forward data
     sigma_r_forward, nu_r_forward = generate_forward_data(
@@ -67,6 +68,10 @@ def main() -> None:
 
     # Stationarity tests
     adf_OAS, adf_C = stationarity_tests(oas_data, cvx_data)
+
+    # Model complexity parameters
+    enable_convexity = False
+    enable_volatility = False
 
     # Estimate model parameters using OLS
     S_OAS_inf = float(np.mean(oas_data))
@@ -86,23 +91,21 @@ def main() -> None:
         nu_r_data.values,
         S_OAS_inf,
         C_CC,
+        enable_convexity=enable_convexity,
+        enable_volatility=enable_volatility,
     )
 
     # Use OLS estimates as initial guess for MLE
-    initial_guess = (
+    initial_guess = [
         kappa_ols,
-        gamma_ols[0],
-        gamma_ols[1],
-        gamma_ols[2],
+        *gamma_ols,
         sigma_O_0_ols,
         delta_ols,
         lambda_ols,
-        beta_ols[0],
-        beta_ols[1],
-        beta_ols[2],
+        *beta_ols,
         sigma_C_ols,
-    )
-
+    ]
+    
     # Estimate model parameters using MLE
     (
         kappa_mle,
@@ -119,12 +122,13 @@ def main() -> None:
         nu_r_data.values,
         S_OAS_inf,
         C_CC,
-        dt=1 / 252,
+        dt,
         initial_guess=initial_guess,
+        enable_convexity=enable_convexity,
+        enable_volatility=enable_volatility,
     )
 
     # Monte Carlo simulation parameters
-    dt = 1 / 252
     steps = project_num_days  # Assuming 252 trading days in a year
     S_OAS_init = float(oas_data.iloc[-1])
     C_init = float(cvx_data.iloc[-1])
@@ -144,9 +148,6 @@ def main() -> None:
 
     # Perform Monte Carlo simulation
     (
-        expected_value_OAS,
-        expected_value_C,
-        expected_value_sigma_O,
         paths_OAS,
         paths_C,
         paths_sigma_O,
@@ -158,15 +159,11 @@ def main() -> None:
         C_CC,
         sigma_r_forward.values,
         nu_r_forward.values,
+        enable_convexity,
+        enable_volatility,
         num_paths,
         steps,
         seed,
-    )
-
-    print(f'Expected value of OAS in one year: {expected_value_OAS * 1e4:.0f} bps')
-    print(f'Expected value of Convexity in one year: {expected_value_C * 1e4:.0f} bps')
-    print(
-        f'Expected value of Sigma_O in one year: {expected_value_sigma_O * 1e4:.0f} bps'
     )
 
     # Plot historical data and Monte Carlo paths
@@ -178,15 +175,8 @@ def main() -> None:
     OAS = pd.concat([oas_data, paths_OAS], axis=1).mul(1e4)
     axs[0].plot(OAS.iloc[:, 0], color='darkblue', label='OAS')
     axs[0].plot(OAS.iloc[:, 1:], color='lightblue', alpha=0.1)
-    axs[0].axhline(
-        y=expected_value_OAS * 1e4,
-        color='lightblue',
-        linestyle='--',
-        label='Projected OAS',
-    )
-    axs[0].axhline(
-        y=S_OAS_inf * 1e4, color='darkblue', linestyle='--', label='Reversion Level'
-    )
+    axs[0].plot(OAS.iloc[:, 1:].mean(axis=1), color='darkblue', linestyle=':', label='Projected OAS', alpha=1.0)
+    axs[0].axhline(y=S_OAS_inf * 1e4, color='darkblue', linestyle='--', label='Reversion Level')
     axs[0].set_title('Monte Carlo Simulation of OAS')
     axs[0].set_xlabel('')
     axs[0].set_ylabel('OAS')
@@ -198,15 +188,8 @@ def main() -> None:
     C = pd.concat([cvx_data, paths_C], axis=1).mul(1e4)
     axs[1].plot(C.iloc[:, 0], color='darkgreen', label='Convexity')
     axs[1].plot(C.iloc[:, 1:], color='lightgreen', alpha=0.1)
-    axs[1].axhline(
-        y=expected_value_C * 1e4,
-        color='lightgreen',
-        linestyle='--',
-        label='Projected Convexity',
-    )
-    axs[1].axhline(
-        y=C_CC * 1e4, color='darkgreen', linestyle='--', label='Reversion Level'
-    )
+    axs[1].plot(C.iloc[:, 1:].mean(axis=1), color='darkgreen', linestyle=':', label='Projected Convexity')
+    axs[1].axhline(y=C_CC * 1e4, color='darkgreen', linestyle='--', label='Reversion Level')
     axs[1].set_title('Monte Carlo Simulation of Convexity')
     axs[1].set_xlabel('')
     axs[1].set_ylabel('Convexity')
