@@ -54,7 +54,7 @@ def generate_correlated_series(
     )
     return pd.Series(series1, index=dates), pd.Series(series2, index=dates)
 
-def generate_training_data(
+def generate_historical_data(
     zv_params: dict[str, float],
     oas_params: dict[str, float],
     zv_oas_rho: float,
@@ -140,7 +140,7 @@ if __name__ == '__main__':
     seed = 42
 
     # Generate training data
-    zv_data, oas_data, sigma_r_data, nu_r_data = generate_training_data(
+    zv_data, oas_data, sigma_r_data, nu_r_data = generate_historical_data(
         zv_params, oas_params, zv_oas_rho, sigma_r_params, nu_r_params,
         train_start_date, train_end_date, freq, seed
     )

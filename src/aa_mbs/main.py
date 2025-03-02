@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from aa_mbs.mock_data import generate_forward_data, generate_training_data
+from aa_mbs.mock_data import generate_forward_data, generate_historical_data
 from aa_mbs.value_model import (
     JointReversionModel,
     estimate_parameters_ols,
@@ -44,7 +44,7 @@ def main() -> None:
     freq = 'B'
 
     # Generate training data
-    zv_data, oas_data, sigma_r_data, nu_r_data = generate_training_data(
+    zv_data, oas_data, sigma_r_data, nu_r_data = generate_historical_data(
         zv_params,
         oas_params,
         zv_oas_rho,
@@ -70,12 +70,13 @@ def main() -> None:
     adf_OAS, adf_C = stationarity_tests(oas_data, cvx_data)
 
     # Model complexity parameters
-    enable_convexity = False
-    enable_volatility = False
+    enable_convexity = True
+    enable_volatility = True
 
     # Estimate model parameters using OLS
     S_OAS_inf = float(np.mean(oas_data))
     C_CC = 0.004
+
     (
         kappa_ols,
         gamma_ols,
